@@ -42,18 +42,11 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      # 5. Obtener configuración de Firebase desde GCP Secret Manager
-      # Tu secreto tiene variables con formato "VITE_FIREBASE_KEY: 'value'".
-      # Usamos una expresión regular ultra-robusta que extrae de forma dinámica todas las variables que comiencen con VITE_
-      # y las escribe directamente en el archivo .env, haciéndolo 100% genérico y compatible con cualquier cambio.
-      - name: Fetch Firebase Config from Secret Manager
+      # 5. Crear el archivo .env desde el secreto de GitHub
+      - name: Create .env file
         run: |
-          SECRET_PAYLOAD=$(gcloud secrets versions access latest --secret="firebaseConfig" --project="179384217399")
-          
-          echo "$SECRET_PAYLOAD" | grep -E "VITE_[A-Z0-9_]+" | sed -E 's/[[:space:]]*"?(VITE_[A-Z0-9_]+)"?[":[:space:]]+([^"'\'', }]+).*/\1=\2/' > .env
-          
-          echo "Archivo .env generado con éxito. Contenido:"
-          cat .env
+          echo "${{ secrets.ENV_FILE }}" > .env
+          echo "Archivo .env creado con éxito."
 
       # 6. Construir y etiquetar la imagen Docker
       # Usamos el hash de git commit como tag de imagen para rastreabilidad única.
