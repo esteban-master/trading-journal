@@ -1,4 +1,4 @@
-import { CalendarDays, Home, Inbox } from 'lucide-react'
+import { CalendarDays, Home, Inbox, Wallet, ShieldAlert } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 
 import {
@@ -20,14 +20,24 @@ const items = [
     icon: Home
   },
   {
-    title: 'Registro de Trades',
-    url: '/page1',
+    title: 'Mis Cuentas',
+    url: '/accounts',
+    icon: Wallet
+  },
+  {
+    title: 'Registrar Trade',
+    url: '/trades/new',
     icon: Inbox
   },
   {
     title: 'Calendario',
-    url: '/page2',
+    url: '/calendar',
     icon: CalendarDays
+  },
+  {
+    title: 'Gestor de Riesgo',
+    url: '/risk',
+    icon: ShieldAlert
   },
 ]
 

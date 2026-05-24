@@ -1,0 +1,32 @@
+export type AccountStatus = 'Evaluation' | 'Funded' | 'Blown' | 'Payout';
+
+export interface Account {
+  id: string;
+  name: string; // e.g., "Topstep 50k #1"
+  firm: string; // e.g., "Topstep", "FTMO"
+  status: AccountStatus;
+  cost: number;
+  startingBalance: number;
+  currentBalance: number;
+  equity: number;
+  totalWithdrawals: number;
+  createdAt: string; // ISO date string
+}
+
+export type TradeDirection = 'Long' | 'Short';
+export type TradeStatus = 'Open' | 'Closed';
+
+export interface Trade {
+  id: string;
+  accountId: string;
+  asset: string; // e.g., "NQ", "ES", "EURUSD"
+  direction: TradeDirection;
+  entryPrice: number;
+  exitPrice?: number;
+  pnl: number;
+  strategy: string;
+  riskRewardRatio: number;
+  images: string[]; // Array of image URLs
+  date: string; // ISO date string
+  status: TradeStatus;
+}

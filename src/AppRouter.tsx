@@ -14,8 +14,11 @@ import DashboardLayout from './DashboardLayout';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/sonner';
 
-const Page1 = lazy(() => import('@/pages/Page1'));
-const Page2 = lazy(() => import('@/pages/Page2'));
+const AccountsList = lazy(() => import('@/pages/Accounts/AccountsList'));
+const AccountDetail = lazy(() => import('@/pages/Accounts/AccountDetail'));
+const TradingCalendar = lazy(() => import('@/pages/Calendar/TradingCalendar'));
+const TradeForm = lazy(() => import('@/components/trades/TradeForm'));
+const RiskManager = lazy(() => import('@/components/risk/RiskManager'));
 
 const RouteLoader = () => (
   <div className="flex h-[calc(100vh-60px)] items-center justify-center">
@@ -32,9 +35,12 @@ function AppRoutes() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<DashboardLayout />} >
-            <Route path="/" element={<Dashboard />} />,
-            <Route path="/page1" element={<Page1 />} />,
-            <Route path="/page2" element={<Page2 />} />,
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/accounts" element={<AccountsList />} />
+            <Route path="/accounts/:id" element={<AccountDetail />} />
+            <Route path="/trades/new" element={<TradeForm />} />
+            <Route path="/calendar" element={<TradingCalendar />} />
+            <Route path="/risk" element={<RiskManager />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
