@@ -1,10 +1,13 @@
 # --- Etapa de Compilación ---
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
+# Definir entorno de CI para evitar diálogos interactivos
+ENV CI=true
+
 # Copiar archivos de dependencias
-COPY package.json pnpm-lock.yaml* yarn.lock* package-lock.json* ./
+COPY package.json pnpm-lock.yaml* yarn.lock* package-lock.json* pnpm-workspace.yaml* ./
 
 # Instalar dependencias según el gestor de paquetes del proyecto
 RUN \

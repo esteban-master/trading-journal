@@ -1,0 +1,7 @@
+# pnpm configuration for Trading Journal
+confirmModulesPurge: false
+allowBuilds:
+  "@firebase/util": true
+  "esbuild": true
+  "protobufjs": true
+  "unrs-resolver": true
