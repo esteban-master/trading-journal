@@ -23,3 +23,6 @@ export const storage = getStorage(app);
 export const auth = getAuth(app);
 
 export default app;
+
+
+// gcloud projects add-iam-policy-binding "trading-journal-c015e" --member="serviceAccount:trading-journal@trading-journal-c015e.iam.gserviceaccount.com" --role="roles/iam.serviceAccountUser"
