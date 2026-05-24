@@ -1,194 +1,358 @@
-import { useState, useCallback } from 'react';
-import { useJournalStore } from '@/store/useJournalStore';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { UploadCloud, X } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { collection, doc, addDoc, updateDoc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/config/firebase';
+import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
+import Decimal from 'decimal.js';
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { UploadCloud, X, Loader2 } from 'lucide-react';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Account } from '@/types';
+
+// ─── Zod Schema ────────────────────────────────────────────────────────────────
+const tradeSchema = z.object({
+  accountId: z.string().min(1, 'Selecciona una cuenta'),
+  asset: z.string().min(1, 'Introduce el activo (ej. NQ)'),
+  direction: z.enum(['Long', 'Short'] as const, { error: 'Selecciona la dirección' }),
+  entryPrice: z.coerce.number({ error: 'Número inválido' }),
+  exitPrice: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
+  pnl: z.coerce.number({ error: 'Número inválido' }),
+  strategy: z.string().min(1, 'Introduce la estrategia'),
+  riskReward: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
+});
+
+type TradeValues = z.infer<typeof tradeSchema>;
 
 export default function TradeForm() {
-  const accounts = useJournalStore(state => state.accounts);
-  const addTrade = useJournalStore(state => state.addTrade);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const defaultAccountId = searchParams.get('accountId') || '';
 
-  const [accountId, setAccountId] = useState(defaultAccountId);
-  const [asset, setAsset] = useState('NQ');
-  const [direction, setDirection] = useState<'Long' | 'Short'>('Long');
-  const [entryPrice, setEntryPrice] = useState('');
-  const [exitPrice, setExitPrice] = useState('');
-  const [pnl, setPnl] = useState('');
-  const [strategy, setStrategy] = useState('');
-  const [riskReward, setRiskReward] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
 
-  // Simulate image upload using File API (base64) for now, until Firebase Storage is hooked
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    acceptedFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImages(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+  console.log({ accounts })
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'accounts'));
+        const accs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Account));
+        setAccounts(accs);
+      } catch (err) {
+        console.error('Error fetching accounts', err);
+      }
+    };
+    fetchAccounts();
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
-    onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 3
+  const form = useForm<TradeValues, unknown, TradeValues>({
+    resolver: zodResolver(tradeSchema) as any,
+    defaultValues: {
+      accountId: defaultAccountId,
+      asset: 'NQ',
+      direction: 'Long',
+      entryPrice: 0,
+      exitPrice: 0,
+      pnl: 0,
+      strategy: '',
+      riskReward: 0,
+    },
   });
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+  // Dropzone para las imágenes (Files reales)
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setFiles(prev => [...prev, ...acceptedFiles].slice(0, 3)); // Max 3
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    maxFiles: 3,
+  });
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!accountId) {
-      alert("Por favor selecciona una cuenta.");
-      return;
+  const onSubmit = async (values: TradeValues) => {
+    setSaving(true);
+    try {
+      // // 1. Subir imágenes a Firebase Storage
+      // const uploadedImageUrls: string[] = [];
+      // for (const file of files) {
+      //   const fileRef = ref(storage, `trades/${values.accountId}/${Date.now()}_${file.name}`);
+      //   await uploadBytes(fileRef, file);
+      //   const url = await getDownloadURL(fileRef);
+      //   uploadedImageUrls.push(url);
+      // }
+
+      // // 2. Guardar el trade en Firestore
+      await addDoc(collection(db, 'trades'), {
+        accountId: values.accountId,
+        asset: values.asset,
+        direction: values.direction,
+        entryPrice: values.entryPrice,
+        exitPrice: values.exitPrice,
+        pnl: values.pnl,
+        strategy: values.strategy,
+        riskRewardRatio: values.riskReward,
+        images: [],
+        status: 'Closed',
+        date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      });
+
+      // 3. Actualizar balance de la cuenta usando decimal.js
+      const accountRef = doc(db, 'accounts', values.accountId);
+      const accSnap = await getDoc(accountRef);
+      if (accSnap.exists()) {
+        const accData = accSnap.data();
+        const currentBalance = new Decimal(accData.currentBalance || 0);
+        const equity = new Decimal(accData.equity || accData.currentBalance || 0);
+        const pnl = new Decimal(values.pnl);
+
+        await updateDoc(accountRef, {
+          currentBalance: currentBalance.plus(pnl).toNumber(),
+          equity: equity.plus(pnl).toNumber(),
+        });
+      }
+
+      toast.success('Trade registrado exitosamente');
+      navigate(`/accounts/${values.accountId}`);
+    } catch (err) {
+      console.error('Error saving trade:', err);
+      toast.error('Error al guardar el trade');
+    } finally {
+      setSaving(false);
     }
-
-    addTrade({
-      accountId,
-      asset,
-      direction,
-      entryPrice: Number(entryPrice),
-      exitPrice: Number(exitPrice),
-      pnl: Number(pnl),
-      strategy,
-      riskRewardRatio: Number(riskReward),
-      images,
-      status: 'Closed' // Asumimos cerrado por ahora
-    });
-
-    navigate(`/accounts/${accountId}`);
   };
 
   return (
-    <div className="max-w-2xl mx-auto animate-in fade-in duration-500">
+    <div className="max-w-2xl mx-auto animate-in fade-in duration-500 mb-20">
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold">Registrar Nuevo Trade</CardTitle>
           <CardDescription>Añade los detalles de tu operación y adjunta capturas de pantalla.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Selección de Cuenta */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cuenta Asociada</label>
-              <select 
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                required
-              >
-                <option value="" disabled>Selecciona una cuenta</option>
-                {accounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.name} - {acc.firm}</option>
-                ))}
-              </select>
-            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Selección de Cuenta */}
+              <FormField
+                control={form.control}
+                name="accountId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cuenta Asociada</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || defaultAccountId}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecciona una cuenta" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          {accounts.map(acc => (
+                            <SelectItem key={acc.id} value={acc.id}>
+                              {acc.name} - {acc.firm}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Activo */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Activo</label>
-                <input 
-                  type="text" 
-                  value={asset}
-                  onChange={(e) => setAsset(e.target.value)}
-                  placeholder="ej. NQ, ES, EURUSD"
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  required
+              <div className="grid grid-cols-2 gap-4">
+                {/* Activo */}
+                <FormField
+                  control={form.control}
+                  name="asset"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Activo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ej. NQ, ES, EURUSD" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Dirección */}
+                <FormField
+                  control={form.control}
+                  name="direction"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dirección</FormLabel>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={field.value === 'Long' ? 'default' : 'outline'}
+                          className={field.value === 'Long' ? 'flex-1 bg-emerald-500/10 border-emerald-500 text-emerald-600 hover:bg-emerald-500/20' : 'flex-1'}
+                          onClick={() => field.onChange('Long')}
+                        >
+                          Long
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={field.value === 'Short' ? 'default' : 'outline'}
+                          className={field.value === 'Short' ? 'flex-1 bg-rose-500/10 border-rose-500 text-rose-600 hover:bg-rose-500/20' : 'flex-1'}
+                          onClick={() => field.onChange('Short')}
+                        >
+                          Short
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
-              {/* Dirección */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Precios y PnL */}
+                <FormField
+                  control={form.control}
+                  name="entryPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Entrada</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="exitPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Salida</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pnl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>PnL Neto ($)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" className="font-bold" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Estrategia y R:R */}
+                <FormField
+                  control={form.control}
+                  name="strategy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estrategia</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ej. SMC, Breakout" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="riskReward"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Riesgo / Beneficio</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.1" placeholder="ej. 2.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Subida de Imágenes */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Dirección</label>
-                <div className="flex gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => setDirection('Long')}
-                    className={`flex-1 py-2.5 rounded-lg border font-semibold transition-colors ${direction === 'Long' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
-                  >
-                    Long
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setDirection('Short')}
-                    className={`flex-1 py-2.5 rounded-lg border font-semibold transition-colors ${direction === 'Short' ? 'bg-rose-500/10 border-rose-500 text-rose-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
-                  >
-                    Short
-                  </button>
+                <FormLabel>Evidencia (Imágenes)</FormLabel>
+
+                <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 bg-slate-50 dark:bg-slate-900/50'}`}>
+                  <input {...getInputProps()} />
+                  <UploadCloud className="size-10 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-600 dark:text-slate-300 font-medium">Arrastra tus capturas aquí o haz clic para buscar</p>
+                  <p className="text-slate-400 text-xs mt-1">Soporta JPG, PNG (Max 3 imágenes)</p>
                 </div>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              {/* Precios y PnL */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Entrada</label>
-                <input type="number" step="0.01" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} required className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Salida</label>
-                <input type="number" step="0.01" value={exitPrice} onChange={e => setExitPrice(e.target.value)} className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">PnL Neto ($)</label>
-                <input type="number" step="0.01" value={pnl} onChange={e => setPnl(e.target.value)} required className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Estrategia y R:R */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Estrategia</label>
-                <input type="text" value={strategy} onChange={e => setStrategy(e.target.value)} placeholder="ej. SMC, Breakout" className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Riesgo / Beneficio</label>
-                <input type="number" step="0.1" value={riskReward} onChange={e => setRiskReward(e.target.value)} placeholder="ej. 2.5" className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-            </div>
-
-            {/* Subida de Imágenes */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Evidencia (Imágenes)</label>
-              
-              <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 bg-slate-50 dark:bg-slate-900/50'}`}>
-                <input {...getInputProps()} />
-                <UploadCloud className="size-10 text-slate-400 mx-auto mb-3" />
-                <p className="text-slate-600 dark:text-slate-300 font-medium">Arrastra tus capturas aquí o haz clic para buscar</p>
-                <p className="text-slate-400 text-xs mt-1">Soporta JPG, PNG (Max 3 imágenes)</p>
+                {files.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    {files.map((file, idx) => {
+                      const url = URL.createObjectURL(file);
+                      return (
+                        <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 aspect-video bg-slate-100">
+                          <img src={url} alt="Trade preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeFile(idx)}
+                            className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {images.length > 0 && (
-                <div className="grid grid-cols-3 gap-3 mt-4">
-                  {images.map((src, idx) => (
-                    <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 aspect-video bg-slate-100">
-                      <img src={src} alt="Trade preview" className="w-full h-full object-cover" />
-                      <button 
-                        type="button" 
-                        onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="size-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-sm transition-colors cursor-pointer">
-              Guardar Trade
-            </button>
-          </form>
+              <Button type="submit" disabled={saving} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-sm transition-colors cursor-pointer">
+                {saving ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar Trade'
+                )}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>

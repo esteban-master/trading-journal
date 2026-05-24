@@ -1,12 +1,45 @@
-
-import { useJournalStore } from '@/store/useJournalStore';
+import { useEffect, useState } from 'react';
+import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { Account } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Wallet, TrendingUp, Plus, ArrowRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { DollarSign, Wallet, TrendingUp, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router';
+import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
 
 export default function AccountsList() {
-  const accounts = useJournalStore((state) => state.accounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Suscripción en tiempo real a la colección de cuentas
+  useEffect(() => {
+    const q = query(collection(db, 'accounts'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const fetched: Account[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name,
+          firm: data.firm,
+          status: data.status,
+          cost: data.cost,
+          startingBalance: data.startingBalance,
+          currentBalance: data.currentBalance,
+          equity: data.equity ?? data.currentBalance,
+          totalWithdrawals: data.totalWithdrawals ?? 0,
+          createdAt:
+            data.createdAt instanceof Timestamp
+              ? data.createdAt.toDate().toISOString()
+              : data.createdAt ?? new Date().toISOString(),
+        };
+      });
+      setAccounts(fetched);
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsub();
+  }, []);
 
   // Calcular métricas globales
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
@@ -25,10 +58,7 @@ export default function AccountsList() {
             Gestiona tus evaluaciones y cuentas fondeadas. Controla tu ROI global.
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-sm cursor-pointer">
-          <Plus className="size-4" />
-          Nueva Cuenta
-        </button>
+        <CreateAccountDialog />
       </div>
 
       {/* Métricas Globales */}
@@ -68,6 +98,20 @@ export default function AccountsList() {
 
       {/* Lista de Cuentas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Estado de carga */}
+        {loading && Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className="flex flex-col">
+            <CardHeader className="pb-4 border-b border-border">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2 mt-1" />
+            </CardHeader>
+            <CardContent className="py-4 flex flex-col gap-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </CardContent>
+          </Card>
+        ))}
         {accounts.map((account) => {
           const isFunded = account.status === 'Funded';
           const isBlown = account.status === 'Blown';
