@@ -1,0 +1,9 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+dist/
+.antigravitycli/
+.agents/
+# Descomenta la siguiente línea si prefieres pasar variables con --build-arg en vez de subir tu .env
+# .env

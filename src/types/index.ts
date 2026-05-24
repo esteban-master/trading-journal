@@ -11,6 +11,14 @@ export interface Account {
   equity: number;
   totalWithdrawals: number;
   createdAt: string; // ISO date string
+  
+  // Evaluation Rules
+  targetProfitPercentage?: number;
+  maxDrawdownPercentage?: number;
+  targetProfitPercentagePhase2?: number;
+  maxDrawdownPercentagePhase2?: number;
+  phase?: number;
+  totalPhases?: number;
 }
 
 export type TradeDirection = 'Long' | 'Short';

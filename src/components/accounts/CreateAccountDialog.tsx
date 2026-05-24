@@ -56,6 +56,12 @@ const createAccountSchema = z.object({
   startingBalance: z.coerce
     .number({ error: 'Introduce un número válido' })
     .min(1000, 'El balance mínimo es $1,000'),
+  targetProfitPercentage: z.coerce.number().optional(),
+  maxDrawdownPercentage: z.coerce.number().optional(),
+  targetProfitPercentagePhase2: z.coerce.number().optional(),
+  maxDrawdownPercentagePhase2: z.coerce.number().optional(),
+  phase: z.coerce.number().optional(),
+  totalPhases: z.coerce.number().optional(),
 })
 
 type CreateAccountValues = z.infer<typeof createAccountSchema>
@@ -80,12 +86,19 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       status: 'Evaluation',
       cost: 49,
       startingBalance: 50000,
+      targetProfitPercentage: 8,
+      maxDrawdownPercentage: 10,
+      targetProfitPercentagePhase2: 5,
+      maxDrawdownPercentagePhase2: 10,
+      phase: 1,
+      totalPhases: 2,
     },
   })
 
   const onSubmit = async (values: CreateAccountValues) => {
     setSaving(true)
     try {
+      const isEval = values.status === 'Evaluation'
       await addDoc(collection(db, 'accounts'), {
         name: values.name,
         firm: values.firm,
@@ -95,6 +108,12 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         currentBalance: values.startingBalance,
         equity: values.startingBalance,
         totalWithdrawals: 0,
+        targetProfitPercentage: isEval ? values.targetProfitPercentage : null,
+        maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : null,
+        targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : null,
+        maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : null,
+        phase: isEval ? values.phase : null,
+        totalPhases: isEval ? values.totalPhases : null,
         createdAt: serverTimestamp(),
       })
 
@@ -292,6 +311,123 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                 )}
               />
             </div>
+
+            {/* Campos de Evaluación condicionales */}
+            {form.watch('status') === 'Evaluation' && (
+              <div className="flex flex-col gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="size-4 text-indigo-500" />
+                  <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="targetProfitPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Objetivo Profit Fase 1 (%)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="maxDrawdownPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Drawdown Fase 1 (%)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {(form.watch('totalPhases') || 1) >= 2 && (
+                  <>
+                    <div className="flex items-center gap-2 mt-2">
+                      <TrendingUp className="size-4 text-indigo-400" />
+                      <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 2</h5>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="targetProfitPercentagePhase2"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Objetivo Profit Fase 2 (%)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="maxDrawdownPercentagePhase2"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Drawdown Fase 2 (%)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phase"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fase Actual</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="totalPhases"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total de Fases</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
 
             <Separator />
 

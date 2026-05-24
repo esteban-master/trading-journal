@@ -1,0 +1,80 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main 
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  GAR_REPO: ${{ secrets.GCP_AR_REPO }}
+  SERVICE_NAME: trading-journal
+  IMAGE_NAME: trading-journal
+
+jobs:
+  deploy:
+    name: Build, Push and Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      # 1. Clonar el repositorio
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Autenticarse con Google Cloud (Workload Identity Federation)
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      # 3. Configurar gcloud CLI
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 4. Configurar Docker para autenticarse con Artifact Registry
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # 5. Obtener configuración de Firebase desde GCP Secret Manager
+      # Tu secreto tiene variables con formato "VITE_FIREBASE_KEY: 'value'".
+      # Usamos una expresión regular ultra-robusta que extrae de forma dinámica todas las variables que comiencen con VITE_
+      # y las escribe directamente en el archivo .env, haciéndolo 100% genérico y compatible con cualquier cambio.
+      - name: Fetch Firebase Config from Secret Manager
+        run: |
+          SECRET_PAYLOAD=$(gcloud secrets versions access latest --secret="firebaseConfig" --project="179384217399")
+          
+          echo "$SECRET_PAYLOAD" | grep -E "VITE_[A-Z0-9_]+" | sed -E 's/[[:space:]]*"?(VITE_[A-Z0-9_]+)"?[":[:space:]]+([^"'\'', }]+).*/\1=\2/' > .env
+          
+          echo "Archivo .env generado con éxito. Contenido:"
+          cat .env
+
+      # 6. Construir y etiquetar la imagen Docker
+      # Usamos el hash de git commit como tag de imagen para rastreabilidad única.
+      - name: Build and Tag Container
+        run: |
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:latest \
+            .
+
+      # 7. Subir la imagen de Docker a Artifact Registry
+      - name: Push Container to Artifact Registry
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:latest
+
+      # 8. Desplegar en Google Cloud Run usando la imagen generada
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated
