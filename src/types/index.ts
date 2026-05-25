@@ -37,4 +37,5 @@ export interface Trade {
   images: string[]; // Array of image URLs
   date: string; // ISO date string
   status: TradeStatus;
+  phase?: number;
 }

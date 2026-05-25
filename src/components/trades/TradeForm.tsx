@@ -114,16 +114,20 @@ export default function TradeForm() {
   const onSubmit = async (values: TradeValues) => {
     setSaving(true);
     try {
-      // // 1. Subir imágenes a Firebase Storage
-      // const uploadedImageUrls: string[] = [];
-      // for (const file of files) {
-      //   const fileRef = ref(storage, `trades/${values.accountId}/${Date.now()}_${file.name}`);
-      //   await uploadBytes(fileRef, file);
-      //   const url = await getDownloadURL(fileRef);
-      //   uploadedImageUrls.push(url);
-      // }
+      // 1. Obtener la cuenta para leer su fase actual y calcular balances
+      const accountRef = doc(db, 'accounts', values.accountId);
+      const accSnap = await getDoc(accountRef);
+      
+      if (!accSnap.exists()) {
+        toast.error('La cuenta seleccionada no existe');
+        setSaving(false);
+        return;
+      }
+      
+      const accData = accSnap.data();
+      const currentPhase = accData.phase || 1;
 
-      // // 2. Guardar el trade en Firestore
+      // 2. Guardar el trade en Firestore inyectando la fase
       await addDoc(collection(db, 'trades'), {
         accountId: values.accountId,
         asset: values.asset,
@@ -137,22 +141,18 @@ export default function TradeForm() {
         status: 'Closed',
         date: new Date(values.date).toISOString(),
         createdAt: Timestamp.fromDate(new Date(values.date)),
+        phase: accData.status === 'Evaluation' ? currentPhase : null,
       });
 
       // 3. Actualizar balance de la cuenta usando decimal.js
-      const accountRef = doc(db, 'accounts', values.accountId);
-      const accSnap = await getDoc(accountRef);
-      if (accSnap.exists()) {
-        const accData = accSnap.data();
-        const currentBalance = new Decimal(accData.currentBalance || 0);
-        const equity = new Decimal(accData.equity || accData.currentBalance || 0);
-        const pnl = new Decimal(values.pnl);
+      const currentBalance = new Decimal(accData.currentBalance || 0);
+      const equity = new Decimal(accData.equity || accData.currentBalance || 0);
+      const pnl = new Decimal(values.pnl);
 
-        await updateDoc(accountRef, {
-          currentBalance: currentBalance.plus(pnl).toNumber(),
-          equity: equity.plus(pnl).toNumber(),
-        });
-      }
+      await updateDoc(accountRef, {
+        currentBalance: currentBalance.plus(pnl).toNumber(),
+        equity: equity.plus(pnl).toNumber(),
+      });
 
       toast.success('Trade registrado exitosamente');
       navigate(`/accounts/${values.accountId}`);

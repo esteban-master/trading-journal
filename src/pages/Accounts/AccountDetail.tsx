@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { doc, onSnapshot, collection, query, where, orderBy, Timestamp, updateDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
@@ -296,7 +296,11 @@ export default function AccountDetail() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estado para la fase seleccionada en la vista (por defecto Fase 1 hasta que cargue la cuenta)
+  const [viewPhase, setViewPhase] = useState<number>(1);
 
+  console.log({ viewPhase, account, trades })
   // Suscripción en tiempo real a la cuenta
   useEffect(() => {
     if (!id) return;
@@ -328,6 +332,7 @@ export default function AccountDetail() {
                 ? data.createdAt.toDate().toISOString()
                 : data.createdAt,
           });
+          setViewPhase(data.phase || 1);
         } else {
           setAccount(null);
         }
@@ -368,6 +373,7 @@ export default function AccountDetail() {
             exitPrice: data.exitPrice,
             pnl: data.pnl,
             strategy: data.strategy ?? '',
+            phase: data.phase,
             riskRewardRatio: data.riskRewardRatio ?? 0,
             images: data.images ?? [],
             date:
@@ -432,9 +438,16 @@ export default function AccountDetail() {
     }
   };
 
+  // --- Aislamiento de Fases ---
+  // Filtramos los trades para mostrar y calcular solo los que pertenecen a la fase que estamos viendo.
+  // A los trades antiguos que no tienen fase, se les asigna fase 1 por defecto.
+  const phaseTrades = useMemo(() => {
+    return trades.filter(t => (t.phase || 1) === viewPhase);
+  }, [trades, viewPhase]);
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data: trades,
+    data: phaseTrades,
     columns,
     state: {
       sorting,
@@ -501,7 +514,7 @@ export default function AccountDetail() {
   const isEval = account.status === 'Evaluation';
 
   // --- Cálculos dinámicos avanzados de Trades ---
-  const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined);
+  const closedTrades = phaseTrades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined);
   const totalTradesCount = closedTrades.length;
 
   const winningTrades = closedTrades.filter(t => t.pnl > 0);
@@ -628,23 +641,44 @@ export default function AccountDetail() {
   console.log({isEval ,targetProfitAmount , maxDrawdownAmount})
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-      <div className="flex items-center gap-4">
-        <Link
-          to="/accounts"
-          className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-        >
-          <ArrowLeft className="size-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            {account.name}
-            <Badge variant={isFunded ? 'success' : isBlown ? 'destructive' : 'info'}>
-              {account.status}
-            </Badge>
-          </h1>
-          <p className="text-sm text-slate-500">
-            {account.firm} • Creada el {new Date(account.createdAt).toLocaleDateString()}
-          </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            to="/accounts"
+            className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            <ArrowLeft className="size-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+              {account.name}
+              <Badge variant={isFunded ? 'success' : isBlown ? 'destructive' : 'info'}>
+                {account.status}
+              </Badge>
+            </h1>
+            <p className="text-sm text-slate-500">
+              {account.firm} • Creada el {new Date(account.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        {/* Phase Selector Tabs */}
+        <div className="bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl">
+          <Tabs defaultValue="1" value={String(viewPhase)} onValueChange={(v) => setViewPhase(Number(v))}>
+            <TabsList className="bg-transparent">
+              <TabsTrigger value="1" className="data-[state=active]:shadow-sm">Fase 1</TabsTrigger>
+              {(account.totalPhases ?? 1) >= 2 && (
+                <TabsTrigger value="2" className="data-[state=active]:shadow-sm" disabled={account.status !== 'Funded' && (account.phase || 1) < 2}>
+                  Fase 2
+                </TabsTrigger>
+              )}
+              {account.status === 'Funded' && (
+                <TabsTrigger value="3" className="data-[state=active]:text-emerald-600 data-[state=active]:bg-emerald-50 dark:data-[state=active]:bg-emerald-950/30 data-[state=active]:shadow-sm">
+                  Funded
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
