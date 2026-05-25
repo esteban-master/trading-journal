@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useForm } from 'react-hook-form';
+import { useForm , Resolver} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { collection, doc, addDoc, updateDoc, getDocs, getDoc, Timestamp } from 'firebase/firestore';
@@ -80,8 +80,9 @@ export default function TradeForm() {
     fetchAccounts();
   }, []);
 
-  const form = useForm<TradeValues, unknown, TradeValues>({
-    resolver: zodResolver(tradeSchema) as any,
+
+  const form = useForm<TradeValues>({
+    resolver: zodResolver(tradeSchema) as unknown as Resolver<TradeValues>,
     defaultValues: {
       accountId: defaultAccountId,
       asset: 'NQ',

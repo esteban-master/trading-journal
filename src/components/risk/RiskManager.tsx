@@ -1,7 +1,8 @@
+import { ShieldAlert, AlertTriangle, CheckCircle2, TrendingDown, BedDouble } from 'lucide-react';
+
 import { useJournalStore } from '@/store/useJournalStore';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ShieldAlert, AlertTriangle, CheckCircle2, TrendingDown, BedDouble } from 'lucide-react';
 
 export default function RiskManager() {
   const accounts = useJournalStore(state => state.accounts);

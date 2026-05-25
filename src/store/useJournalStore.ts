@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Account, Trade } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+
+import { Account, Trade } from '@/types';
 
 interface JournalState {
   accounts: Account[];
