@@ -317,7 +317,12 @@ export default function AccountDetail() {
             currentBalance: data.currentBalance,
             equity: data.equity ?? data.currentBalance,
             totalWithdrawals: data.totalWithdrawals ?? 0,
-            // Convertir Timestamp de Firestore a ISO string si aplica
+            targetProfitPercentage: data.targetProfitPercentage,
+            maxDrawdownPercentage: data.maxDrawdownPercentage,
+            targetProfitPercentagePhase2: data.targetProfitPercentagePhase2,
+            maxDrawdownPercentagePhase2: data.maxDrawdownPercentagePhase2,
+            phase: data.phase,
+            totalPhases: data.totalPhases,
             createdAt:
               data.createdAt instanceof Timestamp
                 ? data.createdAt.toDate().toISOString()
@@ -523,6 +528,7 @@ export default function AccountDetail() {
     ? account.maxDrawdownPercentagePhase2
     : account.maxDrawdownPercentage;
 
+    console.log({account, })
   // Evaluation calculations using Decimal
   const targetProfitAmount = isEval && activeTargetProfitPercentage 
     ? new Decimal(account.startingBalance).times(new Decimal(activeTargetProfitPercentage).div(100)).toNumber() 
@@ -618,6 +624,8 @@ export default function AccountDetail() {
   const maxVal = Math.max(...balances, account.startingBalance) * 1.002;
   const minVal = Math.min(...balances, account.startingBalance) * 0.998;
 
+
+  console.log({isEval ,targetProfitAmount , maxDrawdownAmount})
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex items-center gap-4">

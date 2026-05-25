@@ -29,6 +29,12 @@ export default function AccountsList() {
           currentBalance: data.currentBalance,
           equity: data.equity ?? data.currentBalance,
           totalWithdrawals: data.totalWithdrawals ?? 0,
+          targetProfitPercentage: data.targetProfitPercentage,
+          maxDrawdownPercentage: data.maxDrawdownPercentage,
+          targetProfitPercentagePhase2: data.targetProfitPercentagePhase2,
+          maxDrawdownPercentagePhase2: data.maxDrawdownPercentagePhase2,
+          phase: data.phase,
+          totalPhases: data.totalPhases,
           createdAt:
             data.createdAt instanceof Timestamp
               ? data.createdAt.toDate().toISOString()
