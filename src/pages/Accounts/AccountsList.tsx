@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
+import { DollarSign, Wallet, TrendingUp, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router';
+
 import { db } from '@/config/firebase';
 import { Account } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, Wallet, TrendingUp, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router';
 import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
 
 export default function AccountsList() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Suscripción en tiempo real a la colección de cuentas
   useEffect(() => {
     const q = query(collection(db, 'accounts'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
@@ -41,7 +41,6 @@ export default function AccountsList() {
     return () => unsub();
   }, []);
 
-  // Calcular métricas globales
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
   const totalWithdrawals = accounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
   const netProfit = totalWithdrawals - totalCost;
