@@ -3,14 +3,14 @@ import { useDropzone } from 'react-dropzone';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { collection, doc, addDoc, updateDoc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { collection, doc, addDoc, updateDoc, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
 import Decimal from 'decimal.js';
+import { UploadCloud, X, Loader2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { UploadCloud, X, Loader2 } from 'lucide-react';
+import { db } from '@/config/firebase';
 import {
   Form,
   FormControl,
@@ -31,6 +31,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Account } from '@/types';
 
+// Helper to get local date-time string in YYYY-MM-DDTHH:mm format
+const getLocalDateTimeString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 // ─── Zod Schema ────────────────────────────────────────────────────────────────
 const tradeSchema = z.object({
   accountId: z.string().min(1, 'Selecciona una cuenta'),
@@ -41,6 +52,7 @@ const tradeSchema = z.object({
   pnl: z.coerce.number({ error: 'Número inválido' }),
   strategy: z.string().min(1, 'Introduce la estrategia'),
   riskReward: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
+  date: z.string().min(1, 'Selecciona la fecha y hora de la operación'),
 });
 
 type TradeValues = z.infer<typeof tradeSchema>;
@@ -79,6 +91,7 @@ export default function TradeForm() {
       pnl: 0,
       strategy: '',
       riskReward: 0,
+      date: getLocalDateTimeString(),
     },
   });
 
@@ -121,8 +134,8 @@ export default function TradeForm() {
         riskRewardRatio: values.riskReward,
         images: [],
         status: 'Closed',
-        date: new Date().toISOString(),
-        createdAt: serverTimestamp(),
+        date: new Date(values.date).toISOString(),
+        createdAt: Timestamp.fromDate(new Date(values.date)),
       });
 
       // 3. Actualizar balance de la cuenta usando decimal.js
@@ -307,6 +320,25 @@ export default function TradeForm() {
                   )}
                 />
               </div>
+
+              {/* Fecha y Hora */}
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha y Hora de Ejecución</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        className="cursor-pointer font-medium"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Subida de Imágenes */}
               <div className="space-y-2">

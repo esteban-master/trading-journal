@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   TrendingUp,
+  TrendingDown,
   Activity,
   DollarSign,
   Percent,
@@ -13,9 +14,12 @@ import {
   Scale,
   Plus,
   Coins,
-  ChevronRight,
-  Sparkles
+  Sparkles,
+  Loader2
 } from "lucide-react"
+import { Link } from 'react-router'
+import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import {
   Card,
@@ -27,58 +31,270 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { db } from '@/config/firebase'
+import { Account, Trade } from '@/types'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart'
+import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
   const [hoveredMetric, setHoveredMetric] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [trades, setTrades] = useState<Trade[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Datos para los sparklines (minigráficos) de las métricas
+  // Suscripción en tiempo real a las cuentas y trades de Firestore
+  useEffect(() => {
+    // 1. Suscripción a todas las cuentas
+    const qAccounts = query(collection(db, 'accounts'), orderBy('createdAt', 'desc'));
+    const unsubAccounts = onSnapshot(qAccounts, (snap) => {
+      const fetchedAccs = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name,
+          firm: data.firm,
+          status: data.status,
+          cost: data.cost ?? 0,
+          startingBalance: data.startingBalance ?? 0,
+          currentBalance: data.currentBalance ?? 0,
+          equity: data.equity ?? data.currentBalance ?? 0,
+          totalWithdrawals: data.totalWithdrawals ?? 0,
+          createdAt: data.createdAt instanceof Timestamp 
+            ? data.createdAt.toDate().toISOString() 
+            : data.createdAt ?? new Date().toISOString()
+        } as Account;
+      });
+      setAccounts(fetchedAccs);
+    }, (err) => console.error("Error al suscribirse a cuentas:", err));
+
+    // 2. Suscripción a todos los trades
+    const qTrades = query(collection(db, 'trades'));
+    const unsubTrades = onSnapshot(qTrades, (snap) => {
+      const fetchedTrades = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          accountId: data.accountId,
+          asset: data.asset,
+          direction: data.direction,
+          entryPrice: data.entryPrice,
+          exitPrice: data.exitPrice,
+          pnl: data.pnl,
+          strategy: data.strategy ?? '',
+          riskRewardRatio: data.riskRewardRatio ?? 0,
+          images: data.images ?? [],
+          date: data.date instanceof Timestamp 
+            ? data.date.toDate().toISOString() 
+            : data.date,
+          status: data.status
+        } as Trade;
+      });
+      setTrades(fetchedTrades);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error al suscribirse a trades:", err);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubAccounts();
+      unsubTrades();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-8 animate-pulse p-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+            <div className="h-4 w-96 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+          </div>
+          <div className="h-8 w-32 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+        </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="h-32 border-slate-100 dark:border-slate-800">
+              <CardContent className="h-full flex items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-slate-350 dark:text-slate-600" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="h-[350px] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-indigo-500" />
+        </div>
+      </div>
+    )
+  }
+
+  // --- Caso especial: Sin cuentas creadas ---
+  if (accounts.length === 0) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-2xl size-28 -translate-x-4 -translate-y-4"></div>
+          <div className="relative size-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 mx-auto">
+            <Briefcase className="size-10" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Comienza tu Diario de Trading</h2>
+        <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8">
+          Aún no has registrado ninguna cuenta de trading. Crea tu primera cuenta (evaluación o real) para comenzar a auditar tu rendimiento.
+        </p>
+        <Link 
+          to="/accounts" 
+          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/25 transition-all flex items-center gap-2 cursor-pointer"
+        >
+          <Plus className="size-4" />
+          Crear mi Primera Cuenta
+        </Link>
+      </div>
+    )
+  }
+
+  // --- CÁLCULOS DE MÉTRICAS GLOBALES ---
+  const totalBalance = accounts.reduce((sum, acc) => sum + acc.currentBalance, 0)
+  const totalStartingBalance = accounts.reduce((sum, acc) => sum + acc.startingBalance, 0)
+
+  // Filtrar trades cerrados
+  const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined)
+  const totalTradesCount = closedTrades.length
+
+  const winningTrades = closedTrades.filter(t => t.pnl > 0)
+  const losingTrades = closedTrades.filter(t => t.pnl < 0)
+  const winRate = totalTradesCount > 0 ? (winningTrades.length / totalTradesCount) * 100 : 0
+
+  // Profit Factor
+  const grossProfit = winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
+  const grossLoss = losingTrades.reduce((sum, t) => sum + Math.abs(t.pnl || 0), 0)
+  const profitFactor = grossLoss > 0 
+    ? (grossProfit / grossLoss).toFixed(2) 
+    : (grossProfit > 0 ? 'Max' : '0.00')
+
+  // Riesgo / Beneficio Promedio
+  const tradesWithRR = closedTrades.filter(t => t.riskRewardRatio > 0)
+  const avgRR = tradesWithRR.length > 0 
+    ? (tradesWithRR.reduce((sum, t) => sum + t.riskRewardRatio, 0) / tradesWithRR.length).toFixed(1)
+    : '0.0'
+
+  // Cambio neto este mes
+  const now = new Date()
+  const monthlyPnL = closedTrades.filter(t => {
+    const d = new Date(t.date)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).reduce((sum, t) => sum + (t.pnl || 0), 0)
+
+  // Cambio este mes porcentual del balance total
+  const startBalThisMonth = totalBalance - monthlyPnL
+  const monthlyPercentChange = startBalThisMonth > 0 ? (monthlyPnL / startBalThisMonth) * 100 : 0
+
+  // Sparkline estático o visual
   const sparklineBalance = "M 0 35 Q 15 25, 30 28 T 60 12 T 90 22 T 120 5"
 
-  // Datos para el gráfico principal de Equity (Curva de Balance)
-  const equityPoints = [
-    { date: "18 May", balance: 9500 },
-    { date: "19 May", balance: 9750 },
-    { date: "20 May", balance: 9600 },
-    { date: "21 May", balance: 9900 },
-    { date: "22 May", balance: 10100 },
-    { date: "23 May", balance: 9980 },
-    { date: "24 May", balance: 10240 },
+  // --- CURVA DE EQUITY DINÁMICA ---
+  const cronTrades = [...closedTrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const equityPoints = [{ date: 'Inicio', balance: totalStartingBalance }]
+  let runningBalance = totalStartingBalance
+
+  cronTrades.forEach(t => {
+    runningBalance += t.pnl
+    const dateObj = new Date(t.date)
+    const formattedDate = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+    equityPoints.push({
+      date: formattedDate,
+      balance: runningBalance
+    })
+  })
+
+  const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
+
+  // --- DISTRIBUCIÓN POR ACTIVO ---
+  const assetGroups: { [key: string]: { name: string; count: number; wins: number; profit: number; color: string } } = {}
+  const colors = ["bg-amber-500", "bg-blue-500", "bg-yellow-600", "bg-purple-500", "bg-indigo-500", "bg-rose-500"]
+
+  closedTrades.forEach(t => {
+    const asset = t.asset || 'Desconocido'
+    if (!assetGroups[asset]) {
+      assetGroups[asset] = {
+        name: asset,
+        count: 0,
+        wins: 0,
+        profit: 0,
+        color: colors[Object.keys(assetGroups).length % colors.length]
+      }
+    }
+    assetGroups[asset].count += 1
+    if (t.pnl > 0) assetGroups[asset].wins += 1
+    assetGroups[asset].profit += t.pnl
+  })
+
+  const assetSummary = Object.values(assetGroups)
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 4)
+
+  const finalAssetSummary = assetSummary.length > 0 ? assetSummary : [
+    { name: "NASDAQ", count: 0, wins: 0, profit: 0, color: "bg-purple-500" },
+    { name: "Gold", count: 0, wins: 0, profit: 0, color: "bg-yellow-600" }
   ]
 
-  // Generar path SVG para la curva principal
-  // Ancho base 700, Alto base 250
-  const svgWidth = 700
-  const svgHeight = 250
-  const paddingLeft = 60
-  const paddingRight = 30
-  const paddingTop = 20
-  const paddingBottom = 40
+  // --- EFICIENCIA, RACHAS Y DRAWDOWN ---
+  const avgWin = winningTrades.length > 0 ? grossProfit / winningTrades.length : 0
+  const avgLoss = losingTrades.length > 0 ? grossLoss / losingTrades.length : 0
+  const efficiencyRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(1) : (avgWin > 0 ? 'Max' : '0.0')
 
-  const minVal = 9400
-  const maxVal = 10400
+  let maxWinStreak = 0
+  let maxLossStreak = 0
+  let currentWinStreak = 0
+  let currentLossStreak = 0
 
-  const getX = (index: number) => {
-    return paddingLeft + (index / (equityPoints.length - 1)) * (svgWidth - paddingLeft - paddingRight)
-  }
+  cronTrades.forEach(t => {
+    if (t.pnl > 0) {
+      currentWinStreak++
+      currentLossStreak = 0
+      if (currentWinStreak > maxWinStreak) maxWinStreak = currentWinStreak
+    } else if (t.pnl < 0) {
+      currentLossStreak++
+      currentWinStreak = 0
+      if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak
+    }
+  })
 
-  const getY = (value: number) => {
-    const ratio = (value - minVal) / (maxVal - minVal)
-    return svgHeight - paddingBottom - ratio * (svgHeight - paddingTop - paddingBottom)
-  }
+  // Drawdown Máximo global
+  let peak = totalStartingBalance
+  let maxDrawdownPercentage = 0
+  let runningBalForDD = totalStartingBalance
 
-  let linePath = ""
-  let areaPath = ""
+  cronTrades.forEach(t => {
+    runningBalForDD += t.pnl
+    if (runningBalForDD > peak) {
+      peak = runningBalForDD
+    } else if (peak > 0) {
+      const drawdown = ((peak - runningBalForDD) / peak) * 100
+      if (drawdown > maxDrawdownPercentage) {
+        maxDrawdownPercentage = drawdown
+      }
+    }
+  })
 
-  if (equityPoints.length > 0) {
-    const pointsStr = equityPoints.map((pt, idx) => `${getX(idx)},${getY(pt.balance)}`)
-    linePath = `M ${pointsStr.join(" L ")}`
-    
-    // Crear el área sombreada conectando los extremos inferiores
-    const firstX = getX(0)
-    const lastX = getX(equityPoints.length - 1)
-    const bottomY = svgHeight - paddingBottom
-    areaPath = `${linePath} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`
-  }
+  // Historial de Operaciones Recientes (Top 5)
+  const recentTrades = [...trades]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5)
+
+  // Formato del mes actual
+  const currentMonthName = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  const formattedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)
+
+  // Configuración del gráfico de Shadcn
+  const chartConfig = {
+    balance: {
+      label: "Balance",
+      color: "var(--chart-2)",
+    },
+  } satisfies ChartConfig
+
+  const pfPercent = Math.min((parseFloat(profitFactor) / 4.0) * 100, 100)
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -105,10 +321,10 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="px-3 py-1.5 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <Calendar className="mr-1.5 size-3.5" />
-            Mayo 2026
+            {formattedMonth}
           </Badge>
           <div className="h-4 w-px bg-slate-200 dark:bg-slate-800"></div>
-          <span className="text-xs text-slate-400 dark:text-slate-500">Activo: C-Trader V4</span>
+          <span className="text-xs text-slate-455 dark:text-slate-500 font-semibold">Cuentas Activas: {accounts.filter(a => a.status !== 'Blown').length}</span>
         </div>
       </div>
 
@@ -127,18 +343,19 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
               <span>Balance Actual</span>
-              <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
-                <TrendingUp className="mr-0.5 size-3" /> +4.5%
+              <Badge variant={monthlyPnL >= 0 ? "success" : "destructive"} className="text-[10px] px-1.5 py-0.5">
+                {monthlyPnL >= 0 ? <TrendingUp className="mr-0.5 size-3" /> : <TrendingDown className="mr-0.5 size-3" />}
+                {monthlyPercentChange >= 0 ? '+' : ''}{monthlyPercentChange.toFixed(1)}%
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
-              $10,240.00
+              ${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
             <div className="flex items-end justify-between">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                +$440.00 este mes
+              <span className={cn("text-xs font-semibold", monthlyPnL >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                {monthlyPnL >= 0 ? '+' : ''}${monthlyPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })} este mes
               </span>
               {/* Sparkline SVG */}
               <div className="h-10 w-24">
@@ -177,19 +394,19 @@ export default function Dashboard() {
           </div>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
-              <span>Win Rate Mensual</span>
+              <span>Win Rate Global</span>
               <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
-                <TrendingUp className="mr-0.5 size-3" /> +2.1%
+                {winningTrades.length} ganados
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
-              68%
+              {Math.round(winRate)}%
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                68 wins / 32 losses
+                {winningTrades.length} wins / {losingTrades.length} losses
               </span>
               {/* Radial Circle Progress */}
               <div className="relative size-10">
@@ -210,12 +427,12 @@ export default function Dashboard() {
                     className="stroke-emerald-500 dark:stroke-emerald-400 transition-all duration-500"
                     strokeWidth="3.5"
                     strokeDasharray={2 * Math.PI * 15}
-                    strokeDashoffset={2 * Math.PI * 15 * (1 - 0.68)}
+                    strokeDashoffset={2 * Math.PI * 15 * (1 - winRate / 100)}
                     strokeLinecap="round"
                   />
                 </svg>
                 <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300">
-                  68%
+                  {Math.round(winRate)}%
                 </span>
               </div>
             </div>
@@ -235,24 +452,24 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
               <span>Profit Factor</span>
-              <Badge variant="info" className="text-[10px] px-1.5 py-0.5">
-                Excelente
+              <Badge variant={parseFloat(profitFactor) >= 1.5 ? "success" : parseFloat(profitFactor) >= 1 ? "info" : "destructive"} className="text-[10px] px-1.5 py-0.5">
+                {parseFloat(profitFactor) >= 2.0 ? 'Excelente' : parseFloat(profitFactor) >= 1.0 ? 'Saludable' : 'Pérdida'}
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
-              2.4
+              {profitFactor}
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>Objetivo: &gt; 2.0</span>
-                <span className="font-semibold text-blue-500">2.4 / 4.0</span>
+                <span className="font-semibold text-blue-500">{profitFactor} / 4.0</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                  style={{ width: "60%" }}
+                  style={{ width: `${pfPercent}%` }}
                 />
               </div>
             </div>
@@ -271,24 +488,24 @@ export default function Dashboard() {
           </div>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
-              <span>Riesgo / Beneficio Promedio</span>
+              <span>Ratio R:R Promedio</span>
               <Badge variant="warning" className="text-[10px] px-1.5 py-0.5">
-                -0.1
+                {avgRR !== '0.0' ? `1 : ${avgRR}` : 'N/A'}
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
-              1 : 2.5
+              1 : {avgRR}
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                <span>Promedio mensual</span>
-                <span className="text-amber-500 font-semibold">Saludable</span>
+                <span>Distribución Ganador/Perdedor</span>
+                <span className="text-amber-500 font-semibold">{winRate >= 50 ? 'Favorable' : 'Riesgoso'}</span>
               </div>
               <div className="flex h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-rose-500/80" style={{ width: "28%" }}></div>
-                <div className="h-full bg-emerald-500" style={{ width: "72%" }}></div>
+                <div className="h-full bg-rose-500/80" style={{ width: `${100 - winRate}%` }}></div>
+                <div className="h-full bg-emerald-500" style={{ width: `${winRate}%` }}></div>
               </div>
             </div>
           </CardContent>
@@ -302,30 +519,30 @@ export default function Dashboard() {
           <TabsList className="p-0 bg-transparent gap-2 h-auto">
             <TabsTrigger 
               value="overview" 
-              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold"
+              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Activity className="size-4 mr-1.5" />
               Vista General
             </TabsTrigger>
             <TabsTrigger 
               value="analytics" 
-              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold"
+              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Scale className="size-4 mr-1.5" />
               Estadísticas Operativas
             </TabsTrigger>
             <TabsTrigger 
               value="activity" 
-              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold"
+              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Briefcase className="size-4 mr-1.5" />
               Operaciones Recientes
             </TabsTrigger>
           </TabsList>
 
-          <span className="hidden sm:inline-flex items-center text-xs text-indigo-400 font-medium animate-pulse">
+          <span className="hidden sm:inline-flex items-center text-xs text-indigo-400 font-semibold animate-pulse">
             <Sparkles className="size-3 mr-1" />
-            Actualizado hace 1 min
+            Actualizado en tiempo real
           </span>
         </div>
 
@@ -339,120 +556,79 @@ export default function Dashboard() {
                   Curva de Equity (Balance en Tiempo Real)
                 </CardTitle>
                 <CardDescription>
-                  Representación gráfica del crecimiento de capital en tu cuenta.
+                  Representación gráfica del crecimiento de capital acumulado de todas las cuentas.
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="bg-indigo-500/5 text-indigo-500 dark:text-indigo-400 border-indigo-500/20 text-xs">
-                Últimos 7 días
+              <Badge variant="outline" className="bg-indigo-500/5 text-indigo-500 dark:text-indigo-400 border-indigo-500/20 text-xs font-semibold">
+                {totalTradesCount} operaciones registradas
               </Badge>
             </CardHeader>
             <CardContent>
-              <div className="relative w-full h-[260px] flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-200/50 dark:border-slate-800/40 p-4 overflow-hidden">
+              <div className="relative w-full h-[260px] flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/20 border border-slate-100 dark:border-slate-800/50 rounded-xl p-2 overflow-hidden">
                 
-                {/* SVG Chart */}
-                <svg
-                  className="w-full h-full"
-                  viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(99, 102, 241, 0.25)" />
-                      <stop offset="100%" stopColor="rgba(99, 102, 241, 0)" />
-                    </linearGradient>
-                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feGaussianBlur stdDeviation="4" result="blur" />
-                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                  </defs>
-
-                  {/* Cuadrículas Horizontales */}
-                  {[9400, 9600, 9800, 10000, 10200, 10400].map((val) => (
-                    <g key={val}>
-                      <line
-                        x1={paddingLeft}
-                        y1={getY(val)}
-                        x2={svgWidth - paddingRight}
-                        y2={getY(val)}
-                        className="stroke-slate-200 dark:stroke-slate-800/60"
-                        strokeWidth="1"
-                        strokeDasharray="4 4"
+                {/* Shadcn Chart de Alta Calidad */}
+                {equityPoints.length > 0 ? (
+                  <ChartContainer
+                    config={chartConfig}
+                    className="w-full h-full"
+                  >
+                    <AreaChart
+                      data={equityPoints}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--color-balance)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="var(--color-balance)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800/60" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={10}
+                        minTickGap={30}
+                        className="text-[10px] font-bold fill-slate-400 dark:fill-slate-500"
                       />
-                      <text
-                        x={paddingLeft - 10}
-                        y={getY(val) + 4}
-                        textAnchor="end"
-                        className="fill-slate-400 text-[10px] font-medium"
-                      >
-                        ${val}
-                      </text>
-                    </g>
-                  ))}
-
-                  {/* Área Sombreada */}
-                  {areaPath && (
-                    <path d={areaPath} fill="url(#areaGradient)" />
-                  )}
-
-                  {/* Línea Principal */}
-                  {linePath && (
-                    <path
-                      d={linePath}
-                      fill="none"
-                      className="stroke-indigo-500 dark:stroke-indigo-400"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      filter="url(#glow)"
-                    />
-                  )}
-
-                  {/* Puntos y Etiquetas del Eje X */}
-                  {equityPoints.map((pt, idx) => {
-                    const x = getX(idx)
-                    const y = getY(pt.balance)
-                    const isLast = idx === equityPoints.length - 1
-
-                    return (
-                      <g key={idx}>
-                        {/* Círculo Interactivo en el último punto */}
-                        {isLast ? (
-                          <>
-                            <circle cx={x} cy={y} r="8" className="fill-indigo-500/30 animate-ping" />
-                            <circle cx={x} cy={y} r="5" className="fill-indigo-500 dark:fill-indigo-400 stroke-white dark:stroke-slate-950" strokeWidth="2" />
-                          </>
-                        ) : (
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r="3"
-                            className="fill-indigo-400 dark:fill-indigo-500 hover:r-5 transition-all cursor-pointer"
-                          />
-                        )}
-
-                        {/* Etiqueta X */}
-                        <text
-                          x={x}
-                          y={svgHeight - 12}
-                          textAnchor="middle"
-                          className="fill-slate-400 dark:fill-slate-500 text-[10px] font-bold"
-                        >
-                          {pt.date}
-                        </text>
-                      </g>
-                    )
-                  })}
-                </svg>
+                      <YAxis 
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={10}
+                        domain={['dataMin - 100', 'dataMax + 100']}
+                        tickFormatter={(value) => `$${value.toLocaleString()}`}
+                        className="text-[10px] font-bold fill-slate-400"
+                        width={60}
+                      />
+                      <ChartTooltip
+                        content={<ChartTooltipContent indicator="line" labelFormatter={(_, payload) => payload[0]?.payload?.date} />}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="balance"
+                        stroke="var(--color-balance)"
+                        fillOpacity={1}
+                        fill="url(#colorBalance)"
+                        strokeWidth={3}
+                        activeDot={{ r: 6, className: "fill-indigo-500 stroke-white dark:stroke-slate-950 stroke-2" }}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                ) : (
+                  <div className="text-slate-400 text-sm">Cargando curva de crecimiento de capital...</div>
+                )}
               </div>
             </CardContent>
             <CardFooter className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800/40 mt-2 pt-4">
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 font-medium">
                 <TrendingUp className="size-3.5 text-emerald-500" />
-                Crecimiento neto de <strong>+$740.00</strong> en el periodo seleccionado
+                Crecimiento neto de <strong className={cn(totalPnL >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                  {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </strong> global
               </span>
-              <button className="text-indigo-500 dark:text-indigo-400 font-bold hover:underline flex items-center cursor-pointer">
-                Ver historial completo <ChevronRight className="size-3.5 ml-0.5" />
-              </button>
+              <span className="text-slate-455 dark:text-slate-500 text-[11px] font-semibold">
+                Balance Inicial: ${totalStartingBalance.toLocaleString()}
+              </span>
             </CardFooter>
           </Card>
 
@@ -463,25 +639,20 @@ export default function Dashboard() {
                 Operativa por Activo
               </CardTitle>
               <CardDescription>
-                Rendimiento de los pares y activos más operados.
+                Rendimiento de los activos y pares más operados en tu diario.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 mt-2">
-              {[
-                { name: "BTCUSD", count: 24, winRate: 75, profit: 1240, color: "bg-amber-500" },
-                { name: "EURUSD", count: 18, winRate: 66, profit: 850, color: "bg-blue-500" },
-                { name: "Gold (XAU)", count: 12, winRate: 50, profit: -320, color: "bg-yellow-600" },
-                { name: "NASDAQ", count: 8, winRate: 80, profit: 900, color: "bg-purple-500" }
-              ].map((asset) => (
+              {finalAssetSummary.map((asset) => (
                 <div key={asset.name} className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${asset.color}`} />
+                      <div className={cn("w-2 h-2 rounded-full", asset.color)} />
                       <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{asset.name}</span>
-                      <span className="text-[10px] text-slate-400 font-medium">({asset.count} trades)</span>
+                      <span className="text-[10px] text-slate-455 font-semibold">({asset.count} trades)</span>
                     </div>
                     <Badge variant={asset.profit >= 0 ? "success" : "destructive"} className="text-[10px]">
-                      {asset.profit >= 0 ? `+$${asset.profit}` : `-$${Math.abs(asset.profit)}`}
+                      {asset.profit >= 0 ? `+$${asset.profit.toLocaleString()}` : `-$${Math.abs(asset.profit).toLocaleString()}`}
                     </Badge>
                   </div>
                   
@@ -489,12 +660,14 @@ export default function Dashboard() {
                   <div className="mt-2.5 space-y-1">
                     <div className="flex justify-between text-[11px]">
                       <span className="text-slate-400">Win Rate</span>
-                      <span className="font-bold text-slate-600 dark:text-slate-300">{asset.winRate}%</span>
+                      <span className="font-bold text-slate-600 dark:text-slate-300">
+                        {asset.count > 0 ? Math.round((asset.wins / asset.count) * 100) : 0}%
+                      </span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                       <div 
-                        className={`h-full rounded-full ${asset.profit >= 0 ? 'bg-emerald-500' : 'bg-rose-500/80'} transition-all`}
-                        style={{ width: `${asset.winRate}%` }}
+                        className={cn("h-full rounded-full transition-all", asset.profit >= 0 ? 'bg-emerald-500' : 'bg-rose-500/80')}
+                        style={{ width: `${asset.count > 0 ? (asset.wins / asset.count) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
@@ -520,24 +693,30 @@ export default function Dashboard() {
               <CardContent className="space-y-4 pt-2">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                   <div className="space-y-0.5">
-                    <span className="text-xs text-slate-400">Trade Prom. Ganador</span>
-                    <p className="text-lg font-bold text-emerald-500">+$350.00</p>
+                    <span className="text-xs text-slate-455">Trade Prom. Ganador</span>
+                    <p className="text-lg font-bold text-emerald-500">
+                      +${avgWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                   <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
                   <div className="space-y-0.5">
-                    <span className="text-xs text-slate-400">Trade Prom. Perdedor</span>
-                    <p className="text-lg font-bold text-rose-500">-$140.00</p>
+                    <span className="text-xs text-slate-455">Trade Prom. Perdedor</span>
+                    <p className="text-lg font-bold text-rose-500">
+                      -${avgLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-slate-400">
                     <span>Ratio de Eficacia Operativa</span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Excelente (2.5x)</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {efficiencyRatio === '0.0' ? 'N/A' : `${efficiencyRatio}x`}
+                    </span>
                   </div>
                   <div className="flex h-2.5 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <div className="h-full bg-emerald-500" style={{ width: "71%" }} />
-                    <div className="h-full bg-rose-500/80" style={{ width: "29%" }} />
+                    <div className="h-full bg-emerald-500" style={{ width: `${avgWin + avgLoss > 0 ? (avgWin / (avgWin + avgLoss)) * 100 : 50}%` }} />
+                    <div className="h-full bg-rose-500/80" style={{ width: `${avgWin + avgLoss > 0 ? (avgLoss / (avgWin + avgLoss)) * 100 : 50}%` }} />
                   </div>
                 </div>
               </CardContent>
@@ -550,29 +729,29 @@ export default function Dashboard() {
                   <ShieldAlert className="size-4 text-amber-500" />
                   Control de Riesgos
                 </CardTitle>
-                <CardDescription>Límites operativos y rachas de la cuenta.</CardDescription>
+                <CardDescription>Límites operativos y rachas en tus cuentas.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-850 text-center">
-                    <span className="text-xs text-slate-400 block mb-1">Racha Ganadora</span>
-                    <strong className="text-lg font-extrabold text-slate-800 dark:text-white">8 trades</strong>
+                    <span className="text-xs text-slate-455 block mb-1">Racha Ganadora</span>
+                    <strong className="text-lg font-extrabold text-slate-800 dark:text-white">{maxWinStreak} trades</strong>
                   </div>
                   <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-850 text-center">
-                    <span className="text-xs text-slate-400 block mb-1">Racha Perdedora</span>
-                    <strong className="text-lg font-extrabold text-slate-800 dark:text-white">3 trades</strong>
+                    <span className="text-xs text-slate-455 block mb-1">Racha Perdedora</span>
+                    <strong className="text-lg font-extrabold text-slate-800 dark:text-white">{maxLossStreak} trades</strong>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Drawdown Máximo</span>
-                    <span className="font-bold text-rose-500">-4.2%</span>
+                    <span className="text-slate-400">Drawdown Máximo Global</span>
+                    <span className="font-bold text-rose-500">-{maxDrawdownPercentage.toFixed(1)}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className="h-full bg-rose-500/80 rounded-full" style={{ width: "42%" }} />
+                    <div className="h-full bg-rose-500/80 rounded-full" style={{ width: `${Math.min(maxDrawdownPercentage * 10, 100)}%` }} />
                   </div>
-                  <span className="text-[10px] text-slate-400 block text-right">Límite absoluto de cuenta: -10%</span>
+                  <span className="text-[10px] text-slate-455 block text-right font-semibold">Cálculo en base a balance inicial histórico</span>
                 </div>
               </CardContent>
             </Card>
@@ -584,26 +763,26 @@ export default function Dashboard() {
                   <Clock className="size-4 text-blue-500" />
                   Métricas de Tiempo
                 </CardTitle>
-                <CardDescription>Duración promedio y actividad por sesión.</CardDescription>
+                <CardDescription>Sesión operativa y duración promedio.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
                 <div className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-850">
                   <Clock className="size-8 text-blue-400 shrink-0" />
                   <div>
-                    <span className="text-xs text-slate-400 block">Tiempo de Retención Promedio</span>
+                    <span className="text-xs text-slate-455 block">Tiempo de Retención Prom.</span>
                     <strong className="text-md text-slate-800 dark:text-white">4 horas, 15 minutos</strong>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" /> Nueva York (62%)
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" /> NY Session (62%)
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-purple-500" /> Londres (28%)
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-purple-500" /> LDN Session (28%)
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" /> Asia (10%)
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" /> Asia Session (10%)
                   </span>
                 </div>
               </CardContent>
@@ -623,10 +802,13 @@ export default function Dashboard() {
                   Listado con el detalle del P&L de tus últimas posiciones en mercado.
                 </CardDescription>
               </div>
-              <button className="flex items-center gap-1 bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-bold transition-all hover:bg-indigo-500 shadow-sm cursor-pointer">
+              <Link 
+                to="/trades/new" 
+                className="flex items-center gap-1 bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-bold transition-all hover:bg-indigo-500 shadow-sm cursor-pointer animate-in fade-in duration-300"
+              >
                 <Plus className="size-3.5" />
                 Registrar Trade
-              </button>
+              </Link>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -642,60 +824,71 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
-                    {[
-                      { asset: "EURUSD", type: "BUY", entry: "1.0850", exit: "1.0920", pnl: 700, status: "Cerrado" },
-                      { asset: "BTCUSD", type: "SELL", entry: "$68,240", exit: "$67,100", pnl: 1140, status: "Cerrado" },
-                      { asset: "XAUUSD (Oro)", type: "BUY", entry: "2340.50", exit: "2332.00", pnl: -850, status: "Cerrado" },
-                      { asset: "NASDAQ", type: "BUY", entry: "18,500", exit: "18,590", pnl: 900, status: "Cerrado" },
-                      { asset: "ETHUSD", type: "BUY", entry: "$3,420", exit: "-", pnl: 120, status: "Abierto" }
-                    ].map((trade, idx) => (
-                      <tr 
-                        key={idx} 
-                        className="bg-white dark:bg-slate-950/20 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
-                      >
-                        <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                          <Coins className="size-4 text-slate-400" />
-                          {trade.asset}
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge 
-                            variant="outline" 
-                            className={`px-2 py-0.5 select-none rounded text-[11px] font-bold ${
-                              trade.type === "BUY" 
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                                : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
-                            }`}
-                          >
-                            {trade.type === "BUY" ? (
-                              <ArrowUpRight className="inline size-3.5 mr-0.5" />
-                            ) : (
-                              <ArrowDownRight className="inline size-3.5 mr-0.5" />
-                            )}
-                            {trade.type}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-300">{trade.entry}</td>
-                        <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-300">{trade.exit}</td>
-                        <td className="px-6 py-4">
-                          <span className={`font-mono font-bold text-base ${
-                            trade.pnl >= 0 ? "text-emerald-500" : "text-rose-500"
-                          }`}>
-                            {trade.pnl >= 0 ? `+$${trade.pnl}.00` : `-$${Math.abs(trade.pnl)}.00`}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge variant={trade.status === "Cerrado" ? "secondary" : "info"} className="rounded select-none gap-1 font-semibold">
-                            {trade.status === "Abierto" && (
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
-                              </span>
-                            )}
-                            {trade.status}
-                          </Badge>
+                    {recentTrades.length > 0 ? (
+                      recentTrades.map((trade) => (
+                        <tr 
+                          key={trade.id} 
+                          className="bg-white dark:bg-slate-950/20 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+                        >
+                          <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <Coins className="size-4 text-slate-400" />
+                            {trade.asset}
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "px-2 py-0.5 select-none rounded text-[11px] font-bold",
+                                trade.direction === "Long" 
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                                  : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
+                              )}
+                            >
+                              {trade.direction === "Long" ? (
+                                <ArrowUpRight className="inline size-3.5 mr-0.5" />
+                              ) : (
+                                <ArrowDownRight className="inline size-3.5 mr-0.5" />
+                              )}
+                              {trade.direction === "Long" ? 'BUY' : 'SELL'}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-300">
+                            ${trade.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-300">
+                            {trade.exitPrice !== undefined && trade.exitPrice !== null && trade.exitPrice !== 0
+                              ? `$${trade.exitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+                              : '-'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn("font-mono font-bold text-base",
+                              trade.pnl >= 0 ? "text-emerald-500" : "text-rose-500"
+                            )}>
+                              {trade.pnl >= 0 
+                                ? `+$${trade.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+                                : `-$${Math.abs(trade.pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge variant={trade.status === "Closed" ? "secondary" : "info"} className="rounded select-none gap-1 font-semibold">
+                              {trade.status === "Open" && (
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                                </span>
+                              )}
+                              {trade.status === 'Closed' ? 'Cerrado' : 'Abierto'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-medium">
+                          No hay operaciones registradas aún.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

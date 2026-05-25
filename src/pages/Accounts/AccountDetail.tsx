@@ -37,6 +37,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Decimal } from 'decimal.js';
 
 import { db } from '@/config/firebase';
 import { Account, Trade } from '@/types';
@@ -68,6 +69,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
+import { formatDate } from '@/lib/formatDate';
 
 // Definición de columnas para TanStack Table
 const columns: ColumnDef<Trade>[] = [
@@ -88,11 +90,7 @@ const columns: ColumnDef<Trade>[] = [
       const date = new Date(row.getValue('date'));
       return (
         <span className="text-slate-500 font-medium dark:text-slate-400">
-          {date.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
+          {formatDate({ size: 'xxsminute', date })}
         </span>
       );
     },
@@ -495,7 +493,25 @@ export default function AccountDetail() {
   const isFunded = account.status === 'Funded';
   const isBlown = account.status === 'Blown';
   const isEval = account.status === 'Evaluation';
-  const pnlNeto = account.currentBalance - account.startingBalance;
+
+  // --- Cálculos dinámicos avanzados de Trades ---
+  const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined);
+  const totalTradesCount = closedTrades.length;
+
+  const winningTrades = closedTrades.filter(t => t.pnl > 0);
+  const losingTrades = closedTrades.filter(t => t.pnl < 0);
+  const winRate = totalTradesCount > 0 ? Math.round((winningTrades.length / totalTradesCount) * 100) : 0;
+
+  // Usar Decimal para calcular el PnL Neto y Balance Actual dinámicamente
+  const pnlNetoDecimal = closedTrades.reduce((acc, t) => acc.plus(new Decimal(t.pnl || 0)), new Decimal(0));
+  const pnlNeto = pnlNetoDecimal.toNumber();
+
+  const currentBalanceDecimal = new Decimal(account.startingBalance).plus(pnlNetoDecimal);
+  const currentBalance = currentBalanceDecimal.toNumber();
+
+  const equity = account.equity !== undefined && account.equity !== null && account.equity !== account.currentBalance
+    ? new Decimal(account.equity).toNumber()
+    : currentBalance;
 
   const currentPhase = account.phase || 1;
   const activeTargetProfitPercentage = currentPhase === 2 && account.targetProfitPercentagePhase2
@@ -506,36 +522,32 @@ export default function AccountDetail() {
     ? account.maxDrawdownPercentagePhase2
     : account.maxDrawdownPercentage;
 
-  // Evaluation calculations
+  // Evaluation calculations using Decimal
   const targetProfitAmount = isEval && activeTargetProfitPercentage 
-    ? account.startingBalance * (activeTargetProfitPercentage / 100) 
+    ? new Decimal(account.startingBalance).times(new Decimal(activeTargetProfitPercentage).div(100)).toNumber() 
     : null;
   const maxDrawdownAmount = isEval && activeMaxDrawdownPercentage 
-    ? account.startingBalance * (activeMaxDrawdownPercentage / 100) 
+    ? new Decimal(account.startingBalance).times(new Decimal(activeMaxDrawdownPercentage).div(100)).toNumber() 
     : null;
   
   const profitProgress = targetProfitAmount && pnlNeto > 0 
-    ? Math.min((pnlNeto / targetProfitAmount) * 100, 100) 
+    ? Decimal.min(new Decimal(pnlNeto).div(targetProfitAmount).times(100), 100).toNumber() 
     : 0;
     
   const drawdownProgress = maxDrawdownAmount && pnlNeto < 0 
-    ? Math.min((Math.abs(pnlNeto) / maxDrawdownAmount) * 100, 100) 
+    ? Decimal.min(new Decimal(Math.abs(pnlNeto)).div(maxDrawdownAmount).times(100), 100).toNumber() 
     : 0;
 
-  // --- Cálculos dinámicos avanzados de Trades ---
-  const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined);
-  const totalTradesCount = closedTrades.length;
+  const grossProfitDecimal = winningTrades.reduce((acc, t) => acc.plus(new Decimal(t.pnl || 0)), new Decimal(0));
 
-  const winningTrades = closedTrades.filter(t => t.pnl > 0);
-  const losingTrades = closedTrades.filter(t => t.pnl < 0);
-  const winRate = totalTradesCount > 0 ? Math.round((winningTrades.length / totalTradesCount) * 100) : 0;
+  const grossLossDecimal = losingTrades.reduce((acc, t) => acc.plus(new Decimal(Math.abs(t.pnl || 0))), new Decimal(0));
 
-  const grossProfit = winningTrades.reduce((acc, t) => acc + t.pnl, 0);
-  const grossLoss = Math.abs(losingTrades.reduce((acc, t) => acc + t.pnl, 0));
-  const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : grossProfit > 0 ? 'Max' : '0.00';
+  const profitFactor = grossLossDecimal.gt(0) 
+    ? grossProfitDecimal.div(grossLossDecimal).toFixed(2) 
+    : grossProfitDecimal.gt(0) ? 'Max' : '0.00';
 
-  const avgWin = winningTrades.length > 0 ? grossProfit / winningTrades.length : 0;
-  const avgLoss = losingTrades.length > 0 ? grossLoss / losingTrades.length : 0;
+  const avgWin = winningTrades.length > 0 ? grossProfitDecimal.div(winningTrades.length).toNumber() : 0;
+  const avgLoss = losingTrades.length > 0 ? grossLossDecimal.div(losingTrades.length).toNumber() : 0;
 
   const tradesWithRR = closedTrades.filter(t => t.riskRewardRatio > 0);
   const avgRR = tradesWithRR.length > 0 
@@ -563,42 +575,42 @@ export default function AccountDetail() {
 
   // Puntos para la Curva de Equity Dinámica
   const equityPoints = [{ date: 'Inicio', balance: account.startingBalance }];
-  let runningBalance = account.startingBalance;
+  let runningBalanceDecimal = new Decimal(account.startingBalance);
 
   cronTrades.forEach(t => {
-    runningBalance += t.pnl;
+    runningBalanceDecimal = runningBalanceDecimal.plus(new Decimal(t.pnl || 0));
     const dateObj = new Date(t.date);
     const formattedDate = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
     equityPoints.push({
       date: formattedDate,
-      balance: runningBalance
+      balance: runningBalanceDecimal.toNumber()
     });
   });
 
   if (equityPoints.length === 1) {
     equityPoints.push({
       date: 'Actual',
-      balance: account.currentBalance
+      balance: currentBalance
     });
   }
 
   // Distribución por Activos
-  const assetsDataMap: Record<string, { count: number, wins: number, profit: number }> = {};
+  const assetsDataMap: Record<string, { count: number, wins: number, profit: Decimal }> = {};
   closedTrades.forEach(t => {
     const assetName = t.asset.toUpperCase();
     if (!assetsDataMap[assetName]) {
-      assetsDataMap[assetName] = { count: 0, wins: 0, profit: 0 };
+      assetsDataMap[assetName] = { count: 0, wins: 0, profit: new Decimal(0) };
     }
     assetsDataMap[assetName].count++;
     if (t.pnl > 0) assetsDataMap[assetName].wins++;
-    assetsDataMap[assetName].profit += t.pnl;
+    assetsDataMap[assetName].profit = assetsDataMap[assetName].profit.plus(new Decimal(t.pnl || 0));
   });
 
   const assetsArray = Object.entries(assetsDataMap).map(([name, data]) => ({
     name,
     count: data.count,
     winRate: data.count > 0 ? Math.round((data.wins / data.count) * 100) : 0,
-    profit: data.profit
+    profit: data.profit.toNumber()
   })).sort((a, b) => b.count - a.count).slice(0, 4);
 
   const balances = equityPoints.map(p => p.balance);
@@ -749,13 +761,13 @@ export default function AccountDetail() {
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
-              ${account.currentBalance.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+              ${currentBalance.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
             <div className="flex items-end justify-between">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Equity: ${account.equity ? account.equity.toLocaleString('es-ES', { minimumFractionDigits: 2 }) : account.currentBalance.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                Equity: ${equity.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
               </span>
               
               {/* Sparkline de Equity */}

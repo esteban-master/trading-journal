@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useJournalStore } from '@/store/useJournalStore';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useJournalStore } from '@/store/useJournalStore';
 
 export default function TradingCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
