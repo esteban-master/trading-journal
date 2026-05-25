@@ -1,16 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useForm , Resolver} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { collection, doc, addDoc, updateDoc, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import Decimal from 'decimal.js';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
-
+import { useAccounts } from '@/hooks/useAccounts';
+import { useCreateTrade } from '@/hooks/useTrades';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { db } from '@/config/firebase';
 import {
   Form,
   FormControl,
@@ -29,7 +27,6 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Account } from '@/types';
 
 // Helper to get local date-time string in YYYY-MM-DDTHH:mm format
 const getLocalDateTimeString = () => {
@@ -62,24 +59,11 @@ export default function TradeForm() {
   const [searchParams] = useSearchParams();
   const defaultAccountId = searchParams.get('accountId') || '';
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { data: accounts = [] } = useAccounts();
+  const createTradeMutation = useCreateTrade();
+  
   const [files, setFiles] = useState<File[]>([]);
-  const [saving, setSaving] = useState(false);
-
-  console.log({ accounts })
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'accounts'));
-        const accs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Account));
-        setAccounts(accs);
-      } catch (err) {
-        console.error('Error fetching accounts', err);
-      }
-    };
-    fetchAccounts();
-  }, []);
-
+  const saving = createTradeMutation.isPending;
 
   const form = useForm<TradeValues>({
     resolver: zodResolver(tradeSchema) as unknown as Resolver<TradeValues>,
@@ -112,23 +96,8 @@ export default function TradeForm() {
   };
 
   const onSubmit = async (values: TradeValues) => {
-    setSaving(true);
     try {
-      // 1. Obtener la cuenta para leer su fase actual y calcular balances
-      const accountRef = doc(db, 'accounts', values.accountId);
-      const accSnap = await getDoc(accountRef);
-      
-      if (!accSnap.exists()) {
-        toast.error('La cuenta seleccionada no existe');
-        setSaving(false);
-        return;
-      }
-      
-      const accData = accSnap.data();
-      const currentPhase = accData.phase || 1;
-
-      // 2. Guardar el trade en Firestore inyectando la fase
-      await addDoc(collection(db, 'trades'), {
+      await createTradeMutation.mutateAsync({
         accountId: values.accountId,
         asset: values.asset,
         direction: values.direction,
@@ -137,21 +106,9 @@ export default function TradeForm() {
         pnl: values.pnl,
         strategy: values.strategy,
         riskRewardRatio: values.riskReward,
-        images: [],
+        images: [], // File upload can be integrated later if needed
         status: 'Closed',
         date: new Date(values.date).toISOString(),
-        createdAt: Timestamp.fromDate(new Date(values.date)),
-        phase: accData.status === 'Evaluation' ? currentPhase : null,
-      });
-
-      // 3. Actualizar balance de la cuenta usando decimal.js
-      const currentBalance = new Decimal(accData.currentBalance || 0);
-      const equity = new Decimal(accData.equity || accData.currentBalance || 0);
-      const pnl = new Decimal(values.pnl);
-
-      await updateDoc(accountRef, {
-        currentBalance: currentBalance.plus(pnl).toNumber(),
-        equity: equity.plus(pnl).toNumber(),
       });
 
       toast.success('Trade registrado exitosamente');
@@ -159,8 +116,6 @@ export default function TradeForm() {
     } catch (err) {
       console.error('Error saving trade:', err);
       toast.error('Error al guardar el trade');
-    } finally {
-      setSaving(false);
     }
   };
 

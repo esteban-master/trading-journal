@@ -2,11 +2,9 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { toast } from 'sonner'
 import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers } from 'lucide-react'
-
-import { db } from '@/config/firebase'
+import { useCreateAccount } from '@/hooks/useAccounts'
 import {
   Dialog,
   DialogContent,
@@ -77,7 +75,8 @@ interface CreateAccountDialogProps {
 
 export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
   const [open, setOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const createAccountMutation = useCreateAccount()
+  const saving = createAccountMutation.isPending
 
   const form = useForm<CreateAccountValues, unknown, CreateAccountValues>({
     resolver: zodResolver(createAccountSchema) as any,
@@ -97,10 +96,9 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
   })
 
   const onSubmit = async (values: CreateAccountValues) => {
-    setSaving(true)
     try {
       const isEval = values.status === 'Evaluation'
-      await addDoc(collection(db, 'accounts'), {
+      await createAccountMutation.mutateAsync({
         name: values.name,
         firm: values.firm,
         status: values.status,
@@ -109,13 +107,12 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         currentBalance: values.startingBalance,
         equity: values.startingBalance,
         totalWithdrawals: 0,
-        targetProfitPercentage: isEval ? values.targetProfitPercentage : null,
-        maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : null,
-        targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : null,
-        maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : null,
-        phase: isEval ? values.phase : null,
-        totalPhases: isEval ? values.totalPhases : null,
-        createdAt: serverTimestamp(),
+        targetProfitPercentage: isEval ? values.targetProfitPercentage : undefined,
+        maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : undefined,
+        targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : undefined,
+        maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : undefined,
+        phase: isEval ? values.phase : undefined,
+        totalPhases: isEval ? values.totalPhases : undefined,
       })
 
       toast.success('Cuenta creada exitosamente', {
@@ -129,8 +126,6 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       toast.error('Error al crear la cuenta', {
         description: 'Verifica tu conexión o las credenciales de Firebase.',
       })
-    } finally {
-      setSaving(false)
     }
   }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +18,8 @@ import {
   Loader2
 } from "lucide-react"
 import { Link } from 'react-router'
-import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore'
+import { useAccounts } from "@/hooks/useAccounts"
+import { useTrades } from "@/hooks/useTrades"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import {
@@ -31,76 +32,15 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { db } from '@/config/firebase'
-import { Account, Trade } from '@/types'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart'
 import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
   const [hoveredMetric, setHoveredMetric] = useState<string | null>(null)
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [trades, setTrades] = useState<Trade[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // Suscripción en tiempo real a las cuentas y trades de Firestore
-  useEffect(() => {
-    // 1. Suscripción a todas las cuentas
-    const qAccounts = query(collection(db, 'accounts'), orderBy('createdAt', 'desc'));
-    const unsubAccounts = onSnapshot(qAccounts, (snap) => {
-      const fetchedAccs = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name,
-          firm: data.firm,
-          status: data.status,
-          cost: data.cost ?? 0,
-          startingBalance: data.startingBalance ?? 0,
-          currentBalance: data.currentBalance ?? 0,
-          equity: data.equity ?? data.currentBalance ?? 0,
-          totalWithdrawals: data.totalWithdrawals ?? 0,
-          createdAt: data.createdAt instanceof Timestamp 
-            ? data.createdAt.toDate().toISOString() 
-            : data.createdAt ?? new Date().toISOString()
-        } as Account;
-      });
-      setAccounts(fetchedAccs);
-    }, (err) => console.error("Error al suscribirse a cuentas:", err));
-
-    // 2. Suscripción a todos los trades
-    const qTrades = query(collection(db, 'trades'));
-    const unsubTrades = onSnapshot(qTrades, (snap) => {
-      const fetchedTrades = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          accountId: data.accountId,
-          asset: data.asset,
-          direction: data.direction,
-          entryPrice: data.entryPrice,
-          exitPrice: data.exitPrice,
-          pnl: data.pnl,
-          strategy: data.strategy ?? '',
-          riskRewardRatio: data.riskRewardRatio ?? 0,
-          images: data.images ?? [],
-          date: data.date instanceof Timestamp 
-            ? data.date.toDate().toISOString() 
-            : data.date,
-          status: data.status
-        } as Trade;
-      });
-      setTrades(fetchedTrades);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error al suscribirse a trades:", err);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubAccounts();
-      unsubTrades();
-    };
-  }, []);
+  
+  const { data: accounts = [], isLoading: accountsLoading } = useAccounts()
+  const { data: trades = [], isLoading: tradesLoading } = useTrades()
+  const loading = accountsLoading || tradesLoading
 
   if (loading) {
     return (

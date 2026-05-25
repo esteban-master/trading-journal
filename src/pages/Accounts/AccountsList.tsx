@@ -1,51 +1,14 @@
-import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
 import { DollarSign, Wallet, TrendingUp, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router';
 
-import { db } from '@/config/firebase';
-import { Account } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
+import { useAccounts } from '@/hooks/useAccounts';
 
 export default function AccountsList() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const q = query(collection(db, 'accounts'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const fetched: Account[] = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name,
-          firm: data.firm,
-          status: data.status,
-          cost: data.cost,
-          startingBalance: data.startingBalance,
-          currentBalance: data.currentBalance,
-          equity: data.equity ?? data.currentBalance,
-          totalWithdrawals: data.totalWithdrawals ?? 0,
-          targetProfitPercentage: data.targetProfitPercentage,
-          maxDrawdownPercentage: data.maxDrawdownPercentage,
-          targetProfitPercentagePhase2: data.targetProfitPercentagePhase2,
-          maxDrawdownPercentagePhase2: data.maxDrawdownPercentagePhase2,
-          phase: data.phase,
-          totalPhases: data.totalPhases,
-          createdAt:
-            data.createdAt instanceof Timestamp
-              ? data.createdAt.toDate().toISOString()
-              : data.createdAt ?? new Date().toISOString(),
-        };
-      });
-      setAccounts(fetched);
-      setLoading(false);
-    }, () => setLoading(false));
-    return () => unsub();
-  }, []);
+  const { data: accounts = [], isLoading: loading } = useAccounts();
 
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
   const totalWithdrawals = accounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
