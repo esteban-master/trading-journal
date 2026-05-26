@@ -1,22 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
-  Timestamp, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  Timestamp,
   DocumentData
 } from 'firebase/firestore';
 import { Decimal } from 'decimal.js';
 
 import { db } from '@/config/firebase';
 import { Trade } from '@/types';
+
+const tradeCollectionKey = 'trades';
+const accountCollectionKey = 'accounts';
 
 // Helper to normalize Firestore Trade document data
 const normalizeTrade = (docId: string, data: DocumentData): Trade => {
@@ -31,8 +34,8 @@ const normalizeTrade = (docId: string, data: DocumentData): Trade => {
     strategy: data.strategy ?? '',
     riskRewardRatio: data.riskRewardRatio ?? 0,
     images: data.images ?? [],
-    date: data.date instanceof Timestamp 
-      ? data.date.toDate().toISOString() 
+    date: data.date instanceof Timestamp
+      ? data.date.toDate().toISOString()
       : data.date ?? new Date().toISOString(),
     status: data.status ?? 'Closed',
     phase: data.phase
@@ -44,21 +47,29 @@ export function useTrades(accountId?: string) {
   return useQuery<Trade[]>({
     queryKey: accountId ? ['trades', 'account', accountId] : ['trades'],
     queryFn: async () => {
-      const tradesRef = collection(db, 'trades');
-      let q;
-      
-      if (accountId) {
-        q = query(
-          tradesRef,
-          where('accountId', '==', accountId),
-          orderBy('date', 'desc')
-        );
-      } else {
-        q = query(tradesRef, orderBy('date', 'desc'));
+      try {
+        const tradesRef = collection(db, tradeCollectionKey);
+        let q;
+
+        if (accountId) {
+          q = query(
+            tradesRef,
+            where('accountId', '==', accountId),
+            orderBy('date', 'desc')
+          );
+        } else {
+          q = query(tradesRef, orderBy('date', 'desc'));
+        }
+
+        console.log('useTrades query 1');
+        const snap = await getDocs(q);
+        console.log('useTrades query 2', snap.docs);
+
+        return snap.docs.map(d => normalizeTrade(d.id, d.data()));
+      } catch (error) {
+        console.error('Error fetching trades:', error);
+        return [];
       }
-      
-      const snap = await getDocs(q);
-      return snap.docs.map(d => normalizeTrade(d.id, d.data()));
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -67,21 +78,21 @@ export function useTrades(accountId?: string) {
 // 2. Hook to create a new trade (includes updating account balance)
 export function useCreateTrade() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (newTrade: Omit<Trade, 'id'>) => {
       // 1. Get the account to find status and current phase/balances
-      const accountRef = doc(db, 'accounts', newTrade.accountId);
+      const accountRef = doc(db, accountCollectionKey, newTrade.accountId);
       const accSnap = await getDoc(accountRef);
       if (!accSnap.exists()) {
         throw new Error('Account does not exist');
       }
-      
+
       const accData = accSnap.data();
       const currentPhase = accData.phase || 1;
-      
+
       // 2. Add the trade document
-      const tradeDocRef = await addDoc(collection(db, 'trades'), {
+      const tradeDocRef = await addDoc(collection(db, tradeCollectionKey), {
         accountId: newTrade.accountId,
         asset: newTrade.asset,
         direction: newTrade.direction,
@@ -96,17 +107,17 @@ export function useCreateTrade() {
         createdAt: Timestamp.fromDate(new Date(newTrade.date)),
         phase: accData.status === 'Evaluation' ? currentPhase : null,
       });
-      
+
       // 3. Update account balance using decimal.js
       const currentBalance = new Decimal(accData.currentBalance || 0);
       const equity = new Decimal(accData.equity || accData.currentBalance || 0);
       const pnl = new Decimal(newTrade.pnl);
-      
+
       await updateDoc(accountRef, {
         currentBalance: currentBalance.plus(pnl).toNumber(),
         equity: equity.plus(pnl).toNumber(),
       });
-      
+
       return tradeDocRef.id;
     },
     onSuccess: (_, variables) => {
@@ -122,10 +133,10 @@ export function useCreateTrade() {
 // 3. Hook to update a trade
 export function useUpdateTrade() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, fields }: { id: string; fields: Partial<Trade> }) => {
-      const docRef = doc(db, 'trades', id);
+      const docRef = doc(db, tradeCollectionKey, id);
       await updateDoc(docRef, fields);
       return id;
     },
@@ -140,10 +151,10 @@ export function useUpdateTrade() {
 // 4. Hook to delete a trade
 export function useDeleteTrade() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, accountId }: { id: string; accountId: string }) => {
-      const docRef = doc(db, 'trades', id);
+      const docRef = doc(db, tradeCollectionKey, id);
       await deleteDoc(docRef);
       return { id, accountId };
     },

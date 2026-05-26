@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { getAuth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 
 // TODO: Replace with your Firebase project configuration
 const firebaseConfig = {
@@ -20,5 +20,17 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+
+// Connect to Local Emulators in development
+if (import.meta.env.DEV) {
+  try {
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectStorageEmulator(storage, '127.0.0.1', 9199);
+    console.log('Firebase Emulators connected.');
+  } catch (error) {
+    console.warn('Firebase Emulators failed to connect or already connected:', error);
+  }
+}
 
 export default app;

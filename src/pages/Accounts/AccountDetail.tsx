@@ -294,6 +294,7 @@ export default function AccountDetail() {
   const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
 
   const loading = accountLoading || tradesLoading;
+  console.log({ trades, account, accountLoading, tradesLoading });
   const error = accountError ? 'No se pudo cargar la cuenta. Verifica tu conexión.' : (account === null && !accountLoading ? 'La cuenta no existe.' : null);
 
   // Estado para la fase seleccionada en la vista (por defecto Fase 1 hasta que cargue la cuenta)
@@ -410,15 +411,15 @@ export default function AccountDetail() {
 
   const grossLossDecimal = losingTrades.reduce((acc, t) => acc.plus(new Decimal(Math.abs(t.pnl || 0))), new Decimal(0));
 
-  const profitFactor = grossLossDecimal.gt(0) 
-    ? grossProfitDecimal.div(grossLossDecimal).toFixed(2) 
+  const profitFactor = grossLossDecimal.gt(0)
+    ? grossProfitDecimal.div(grossLossDecimal).toFixed(2)
     : grossProfitDecimal.gt(0) ? 'Max' : '0.00';
 
   const avgWin = winningTrades.length > 0 ? grossProfitDecimal.div(winningTrades.length).toNumber() : 0;
   const avgLoss = losingTrades.length > 0 ? grossLossDecimal.div(losingTrades.length).toNumber() : 0;
 
   const tradesWithRR = closedTrades.filter(t => t.riskRewardRatio > 0);
-  const avgRR = tradesWithRR.length > 0 
+  const avgRR = tradesWithRR.length > 0
     ? (tradesWithRR.reduce((acc, t) => acc + t.riskRewardRatio, 0) / tradesWithRR.length).toFixed(1)
     : '0.0';
 
@@ -533,7 +534,7 @@ export default function AccountDetail() {
 
       {/* Grid de Métricas Clave al estilo Dashboard */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        
+
         {/* Card 1: Balance & Equity */}
         <Card className="relative overflow-hidden group hover:border-indigo-500/50 dark:hover:border-indigo-500/40 transition-all duration-300">
           <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -556,13 +557,13 @@ export default function AccountDetail() {
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 Equity: ${equity.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
               </span>
-              
+
               {/* Sparkline de Equity */}
               <div className="h-10 w-24 select-none">
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 120 40">
                   <path
                     d={
-                      equityPoints.length > 2 
+                      equityPoints.length > 2
                         ? `M ${equityPoints.map((pt, idx) => `${(idx / (equityPoints.length - 1)) * 120},${40 - ((pt.balance - minVal) / (maxVal - minVal || 1)) * 30 - 5}`).join(' L ')}`
                         : "M 0 35 Q 30 25, 60 20 T 120 15"
                     }
@@ -605,7 +606,7 @@ export default function AccountDetail() {
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 Total: {totalTradesCount} operaciones
               </span>
-              
+
               {/* Radial Progress */}
               <div className="relative size-10">
                 <svg className="w-full h-full transform -rotate-90">
@@ -649,8 +650,8 @@ export default function AccountDetail() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
               <span>Profit Factor</span>
-              <Badge 
-                variant={profitFactor === 'Max' || parseFloat(profitFactor) >= 2.0 ? "success" : parseFloat(profitFactor) >= 1.0 ? "info" : "destructive"} 
+              <Badge
+                variant={profitFactor === 'Max' || parseFloat(profitFactor) >= 2.0 ? "success" : parseFloat(profitFactor) >= 1.0 ? "info" : "destructive"}
                 className="text-[10px] px-1.5 py-0.5 font-bold"
               >
                 {profitFactor === 'Max' || parseFloat(profitFactor) >= 2.0 ? 'Excelente' : parseFloat(profitFactor) >= 1.0 ? 'Saludable' : 'Critico'}
@@ -667,7 +668,7 @@ export default function AccountDetail() {
                 <span className="font-semibold text-blue-500 font-mono">Factor: {profitFactor}</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div 
+                <div
                   className={cn(
                     "h-full rounded-full transition-all duration-500",
                     profitFactor === 'Max' || parseFloat(profitFactor) >= 2.0 ? "bg-emerald-500" : parseFloat(profitFactor) >= 1.0 ? "bg-blue-500" : "bg-rose-500"
@@ -716,22 +717,22 @@ export default function AccountDetail() {
       <Tabs defaultValue="overview" className="w-full">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <TabsList className="p-0 bg-transparent gap-2 h-auto">
-            <TabsTrigger 
-              value="overview" 
+            <TabsTrigger
+              value="overview"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-bold"
             >
               <Activity className="size-4 mr-1.5" />
               Vista General
             </TabsTrigger>
-            <TabsTrigger 
-              value="analytics" 
+            <TabsTrigger
+              value="analytics"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-bold"
             >
               <Scale className="size-4 mr-1.5" />
               Estadísticas Operativas
             </TabsTrigger>
-            <TabsTrigger 
-              value="activity" 
+            <TabsTrigger
+              value="activity"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-bold"
             >
               <Briefcase className="size-4 mr-1.5" />
@@ -747,7 +748,7 @@ export default function AccountDetail() {
 
         {/* TAB 1: VISTA GENERAL (Gráfico Equity + Distribución por Activos) */}
         <TabsContent value="overview" className="grid grid-cols-1 gap-6 lg:grid-cols-3 mt-6">
-          
+
           {/* Gráfico de Equity Dinámico */}
           <Card className="lg:col-span-2 shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -786,15 +787,15 @@ export default function AccountDetail() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800/60" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         tickLine={false}
                         axisLine={false}
                         tickMargin={10}
                         minTickGap={30}
                         className="text-[10px] font-bold fill-slate-455 dark:fill-slate-500"
                       />
-                      <YAxis 
+                      <YAxis
                         tickLine={false}
                         axisLine={false}
                         tickMargin={10}
@@ -868,7 +869,7 @@ export default function AccountDetail() {
                           {isAssetPositive ? '+' : ''}${asset.profit.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                         </Badge>
                       </div>
-                      
+
                       {/* Winrate Bar */}
                       <div className="mt-2.5 space-y-1">
                         <div className="flex justify-between text-[11px]">
@@ -876,7 +877,7 @@ export default function AccountDetail() {
                           <span className="font-bold text-slate-700 dark:text-slate-300">{asset.winRate}%</span>
                         </div>
                         <div className="w-full h-1.5 rounded-full bg-slate-150 dark:bg-slate-800 overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full rounded-full ${isAssetPositive ? 'bg-emerald-500' : 'bg-rose-500/80'} transition-all`}
                             style={{ width: `${asset.winRate}%` }}
                           />
@@ -893,7 +894,7 @@ export default function AccountDetail() {
         {/* TAB 2: METRICAS OPERATIVAS AVANZADAS */}
         <TabsContent value="analytics" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            
+
             {/* Métricas de Eficiencia */}
             <Card className="shadow-xs">
               <CardHeader className="pb-2">
@@ -968,12 +969,12 @@ export default function AccountDetail() {
                     </span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div 
+                    <div
                       className={cn(
                         "h-full rounded-full transition-all",
                         pnlNeto < 0 ? "bg-rose-500/80" : "bg-emerald-500"
-                      )} 
-                      style={{ width: `${Math.min(Math.abs(pnlNeto) / (account.startingBalance * 0.1 || 1) * 100, 100)}%` }} 
+                      )}
+                      style={{ width: `${Math.min(Math.abs(pnlNeto) / (account.startingBalance * 0.1 || 1) * 100, 100)}%` }}
                     />
                   </div>
                   <span className="text-[10px] text-slate-400 block text-right font-medium">Drawdown actual relativo a Balance Inicial</span>
@@ -1067,9 +1068,9 @@ export default function AccountDetail() {
                                 {header.isPlaceholder
                                   ? null
                                   : flexRender(
-                                      header.column.columnDef.header,
-                                      header.getContext()
-                                    )}
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
                               </TableHead>
                             ))}
                           </TableRow>
