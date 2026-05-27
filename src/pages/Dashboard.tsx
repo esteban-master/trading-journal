@@ -15,11 +15,15 @@ import {
   Plus,
   Coins,
   Sparkles,
-  Loader2
+  Loader2,
+  Wallet,
+  PiggyBank,
+  ArrowUpFromLine
 } from "lucide-react"
 import { Link } from 'react-router'
 import { useAccounts } from "@/hooks/useAccounts"
 import { useTrades } from "@/hooks/useTrades"
+import { useWithdrawals } from "@/hooks/useWithdrawals"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import {
@@ -40,7 +44,8 @@ export default function Dashboard() {
   
   const { data: accounts = [], isLoading: accountsLoading } = useAccounts()
   const { data: trades = [], isLoading: tradesLoading } = useTrades()
-  const loading = accountsLoading || tradesLoading
+  const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals()
+  const loading = accountsLoading || tradesLoading || withdrawalsLoading
 
   if (loading) {
     return (
@@ -108,9 +113,11 @@ export default function Dashboard() {
   // Profit Factor
   const grossProfit = winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
   const grossLoss = losingTrades.reduce((sum, t) => sum + Math.abs(t.pnl || 0), 0)
-  const profitFactor = grossLoss > 0 
+  const profitFactorStr = grossLoss > 0 
     ? (grossProfit / grossLoss).toFixed(2) 
     : (grossProfit > 0 ? 'Max' : '0.00')
+
+  const pfValue = profitFactorStr === 'Max' ? 4.0 : parseFloat(profitFactorStr)
 
   // Riesgo / Beneficio Promedio
   const tradesWithRR = closedTrades.filter(t => t.riskRewardRatio > 0)
@@ -234,7 +241,37 @@ export default function Dashboard() {
     },
   } satisfies ChartConfig
 
-  const pfPercent = Math.min((parseFloat(profitFactor) / 4.0) * 100, 100)
+  const pfPercent = Math.min((pfValue / 4.0) * 100, 100)
+
+  // --- METRICAS DE CAPITAL Y RETIROS ---
+  const fundedAccounts = accounts.filter(a => a.status === 'Funded');
+  const realAccounts = accounts.filter(a => a.status === 'Real');
+
+  const fundedAccountIds = fundedAccounts.map(a => a.id);
+  const realAccountIds = realAccounts.map(a => a.id);
+
+  // Profit Factor (Fondeadas)
+  const fundedTrades = closedTrades.filter(t => fundedAccountIds.includes(t.accountId));
+  const fundedWinningTrades = fundedTrades.filter(t => t.pnl > 0);
+  const fundedLosingTrades = fundedTrades.filter(t => t.pnl < 0);
+  const fundedGrossProfit = fundedWinningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const fundedGrossLoss = fundedLosingTrades.reduce((sum, t) => sum + Math.abs(t.pnl || 0), 0);
+  const fundedProfitFactorStr = fundedGrossLoss > 0
+    ? (fundedGrossProfit / fundedGrossLoss).toFixed(2)
+    : (fundedGrossProfit > 0 ? 'Max' : '0.00');
+
+  // Retiros
+  const fundedWithdrawals = withdrawals.filter(w => fundedAccountIds.includes(w.accountId));
+  const realWithdrawals = withdrawals.filter(w => realAccountIds.includes(w.accountId));
+
+  const totalFundedWithdrawals = fundedWithdrawals.reduce((sum, w) => sum + (w.netAmount || w.amount || 0), 0);
+  const totalRealWithdrawals = realWithdrawals.reduce((sum, w) => sum + (w.amount || 0), 0); // Real no tiene profit split
+  const totalWithdrawalsOverall = totalFundedWithdrawals + totalRealWithdrawals;
+
+  const totalCost = accounts.reduce((sum, a) => sum + (a.cost || 0), 0);
+  const netProfit = totalWithdrawalsOverall - totalCost;
+  const globalROI = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
+  const globalROIStr = totalCost > 0 ? `${globalROI >= 0 ? '+' : ''}${globalROI.toFixed(2)}%` : (totalWithdrawalsOverall > 0 ? 'Max' : '0.0%');
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -392,19 +429,19 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
               <span>Profit Factor</span>
-              <Badge variant={parseFloat(profitFactor) >= 1.5 ? "success" : parseFloat(profitFactor) >= 1 ? "info" : "destructive"} className="text-[10px] px-1.5 py-0.5">
-                {parseFloat(profitFactor) >= 2.0 ? 'Excelente' : parseFloat(profitFactor) >= 1.0 ? 'Saludable' : 'Pérdida'}
+              <Badge variant={pfValue >= 1.5 ? "success" : pfValue >= 1 ? "info" : "destructive"} className="text-[10px] px-1.5 py-0.5">
+                {pfValue >= 2.0 ? 'Excelente' : pfValue >= 1.0 ? 'Saludable' : 'Pérdida'}
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
-              {profitFactor}
+              {profitFactorStr}
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>Objetivo: &gt; 2.0</span>
-                <span className="font-semibold text-blue-500">{profitFactor} / 4.0</span>
+                <span className="font-semibold text-blue-500">{profitFactorStr} / 4.0</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <div 
@@ -470,6 +507,13 @@ export default function Dashboard() {
             >
               <Scale className="size-4 mr-1.5" />
               Estadísticas Operativas
+            </TabsTrigger>
+            <TabsTrigger 
+              value="capital" 
+              className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
+            >
+              <Wallet className="size-4 mr-1.5" />
+              Capital y Retiros
             </TabsTrigger>
             <TabsTrigger 
               value="activity" 
@@ -730,7 +774,94 @@ export default function Dashboard() {
           </div>
         </TabsContent>
 
-        {/* CONTENIDO 3: OPERACIONES RECIENTES */}
+        {/* CONTENIDO 3: CAPITAL Y RETIROS */}
+        <TabsContent value="capital" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Panel Principal de Retiros */}
+            <Card className="lg:col-span-2 relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <PiggyBank className="size-6 text-emerald-500" />
+                  Rendimiento y Retiros
+                </CardTitle>
+                <CardDescription>
+                  Resumen financiero de tus cuentas fondeadas y reales.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Total Retirado */}
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="text-sm text-slate-500 mb-1 flex items-center justify-between">
+                      <span>Total Retirado</span>
+                      <ArrowUpFromLine className="size-4 text-emerald-500" />
+                    </div>
+                    <div className="text-2xl font-extrabold text-emerald-500">
+                      ${totalWithdrawalsOverall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  {/* Fondeadas Retirado */}
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="text-sm text-slate-500 mb-1">Cuentas Fondeadas</div>
+                    <div className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                      ${totalFundedWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">{fundedWithdrawals.length} payouts</div>
+                  </div>
+                  {/* Reales Retirado */}
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="text-sm text-slate-500 mb-1">Cuentas Reales</div>
+                    <div className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                      ${totalRealWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">{realWithdrawals.length} payouts</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Métricas Exclusivas de Fondeo */}
+            <Card className="bg-slate-900 text-white border-slate-800 shadow-xl overflow-hidden relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+              <CardHeader className="relative pb-2 z-10">
+                <CardTitle className="text-md text-slate-200">
+                  Desempeño en Fondeo
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Eficiencia en la fase Funded.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="relative z-10 space-y-6 mt-2">
+                <div>
+                  <div className="flex items-center justify-between mb-1 text-sm">
+                    <span className="text-slate-300 font-medium">Retorno de Inversión (ROI) Global</span>
+                    <Badge 
+                      variant={globalROI >= 0 ? "success" : "destructive"} 
+                      className={globalROI >= 0 
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30" 
+                        : "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"}
+                    >
+                      {globalROIStr}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500">Retiros vs. costo total de evaluaciones.</p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1 text-sm">
+                    <span className="text-slate-300 font-medium">Profit Factor Fondeadas</span>
+                    <span className="font-bold text-indigo-400 text-lg">{fundedProfitFactorStr}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2">
+                    <div className="h-full bg-indigo-500" style={{ width: `${Math.min((parseFloat(fundedProfitFactorStr === 'Max' ? '4' : fundedProfitFactorStr) / 4) * 100, 100)}%` }}></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* CONTENIDO 4: OPERACIONES RECIENTES */}
         <TabsContent value="activity" className="mt-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
