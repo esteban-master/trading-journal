@@ -99,8 +99,9 @@ export default function Dashboard() {
   }
 
   // --- CÁLCULOS DE MÉTRICAS GLOBALES ---
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.currentBalance, 0)
-  const totalStartingBalance = accounts.reduce((sum, acc) => sum + acc.startingBalance, 0)
+  const activeAccounts = accounts.filter(a => a.status !== 'Blown')
+  const totalBalance = activeAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0)
+  const totalStartingBalance = activeAccounts.reduce((sum, acc) => sum + acc.startingBalance, 0)
 
   // Filtrar trades cerrados
   const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined)
@@ -301,7 +302,7 @@ export default function Dashboard() {
             {formattedMonth}
           </Badge>
           <div className="h-4 w-px bg-slate-200 dark:bg-slate-800"></div>
-          <span className="text-xs text-slate-455 dark:text-slate-500 font-semibold">Cuentas Activas: {accounts.filter(a => a.status !== 'Blown').length}</span>
+          <span className="text-xs text-slate-455 dark:text-slate-500 font-semibold">Cuentas Activas: {activeAccounts.length}</span>
         </div>
       </div>
 
