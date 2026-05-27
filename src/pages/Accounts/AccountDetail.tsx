@@ -302,10 +302,14 @@ export default function AccountDetail() {
 
   // Mantener la fase de vista sincronizada cuando la cuenta cambia o se carga por primera vez
   useEffect(() => {
-    if (account?.phase) {
-      setViewPhase(account.phase);
+    if (account) {
+      if (account.status === 'Funded') {
+        setViewPhase(3);
+      } else if (account.phase) {
+        setViewPhase(account.phase);
+      }
     }
-  }, [account?.phase]);
+  }, [account]);
 
 
   // --- Estados de UI ---

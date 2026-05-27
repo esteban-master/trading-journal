@@ -111,7 +111,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : undefined,
         targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : undefined,
         maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : undefined,
-        phase: isEval ? values.phase : undefined,
+        phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
         totalPhases: isEval ? values.totalPhases : undefined,
       })
 

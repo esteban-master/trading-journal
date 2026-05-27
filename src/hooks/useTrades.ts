@@ -102,7 +102,7 @@ export function useCreateTrade() {
         status: newTrade.status ?? 'Closed',
         date: newTrade.date,
         createdAt: Timestamp.fromDate(new Date(newTrade.date)),
-        phase: accData.status === 'Evaluation' ? currentPhase : null,
+        phase: accData.status === 'Evaluation' ? currentPhase : (accData.status === 'Funded' ? 3 : null),
       });
 
       // 3. Update account balance using decimal.js

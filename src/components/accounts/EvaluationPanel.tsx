@@ -62,7 +62,12 @@ export default function EvaluationPanel({ account, viewPhase } : { account: Acco
           if (isLastPhase) {
             await updateAccountMutation({
               id: account.id,
-              fields: { status: 'Funded' }
+              fields: { 
+                status: 'Funded',
+                phase: 3,
+                currentBalance: account.startingBalance,
+                equity: account.startingBalance
+              }
             });
             toast.success('¡Felicidades!', { description: 'Cuenta aprobada y fondeada.' });
           } else {
