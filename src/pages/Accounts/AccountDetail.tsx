@@ -29,6 +29,7 @@ import {
 import {
   ColumnDef,
   SortingState,
+  ColumnFiltersState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -71,6 +72,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '
 import { formatDate } from '@/lib/formatDate';
 import EvaluationPanel from '@/components/accounts/EvaluationPanel';
 import { CreateWithdrawalDialog } from '@/components/accounts/CreateWithdrawalDialog';
+import { buttonVariants } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Definición de columnas para TanStack Table
 const columns: ColumnDef<Trade>[] = [
@@ -98,6 +101,11 @@ const columns: ColumnDef<Trade>[] = [
   },
   {
     accessorKey: 'asset',
+    filterFn: (row, columnId, filterValue) => {
+      const val = row.getValue(columnId) as string;
+      if (!val) return false;
+      return val.toUpperCase() === filterValue.toUpperCase();
+    },
     header: ({ column }) => {
       return (
         <button
@@ -120,6 +128,11 @@ const columns: ColumnDef<Trade>[] = [
   },
   {
     accessorKey: 'direction',
+    filterFn: (row, columnId, filterValue) => {
+      const val = row.getValue(columnId) as string;
+      if (!val) return false;
+      return val === filterValue;
+    },
     header: 'Dirección',
     cell: ({ row }) => {
       const direction: 'Long' | 'Short' = row.getValue('direction');
@@ -321,6 +334,7 @@ export default function AccountDetail() {
     { id: 'date', desc: true }
   ]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   // --- Aislamiento de Fases ---
   // Filtramos los trades para mostrar y calcular solo los que pertenecen a la fase que estamos viendo.
@@ -330,6 +344,58 @@ export default function AccountDetail() {
     return trades.filter(t => (t.phase || 1) === viewPhase);
   }, [trades, viewPhase, account?.status]);
 
+  // --- Conteo y Opciones Facetadas para Filtros ---
+  const assetFacets = useMemo(() => {
+    const counts: Record<string, number> = {};
+    phaseTrades.forEach(t => {
+      if (t.asset) {
+        const key = t.asset.toUpperCase();
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [phaseTrades]);
+
+  const directionFacets = useMemo(() => {
+    const counts: Record<string, number> = {};
+    phaseTrades.forEach(t => {
+      if (t.direction) {
+        counts[t.direction] = (counts[t.direction] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [phaseTrades]);
+
+  const selectedAsset = (columnFilters.find(f => f.id === 'asset')?.value as string) || 'all';
+  const selectedDirection = (columnFilters.find(f => f.id === 'direction')?.value as string) || 'all';
+
+  const handleAssetChange = (val: string) => {
+    setColumnFilters(prev => {
+      const filtered = prev.filter(f => f.id !== 'asset');
+      if (val === 'all') return filtered;
+      return [...filtered, { id: 'asset', value: val }];
+    });
+  };
+
+  const handleDirectionChange = (val: string) => {
+    setColumnFilters(prev => {
+      const filtered = prev.filter(f => f.id !== 'direction');
+      if (val === 'all') return filtered;
+      return [...filtered, { id: 'direction', value: val }];
+    });
+  };
+
+  const clearAllFilters = () => {
+    setColumnFilters([]);
+    setGlobalFilter('');
+  };
+
+  const hasActiveFilters = columnFilters.length > 0 || globalFilter !== '';
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: phaseTrades,
@@ -337,9 +403,11 @@ export default function AccountDetail() {
     state: {
       sorting,
       globalFilter,
+      columnFilters,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -1080,10 +1148,8 @@ export default function AccountDetail() {
                 <CardTitle className="text-lg">Operaciones Registradas</CardTitle>
                 <CardDescription>Visualiza, busca y analiza cada una de tus posiciones en esta cuenta.</CardDescription>
               </div>
-              <Link to={`/trades/new?accountId=${account.id}`}>
-                <button className="flex items-center gap-2 bg-indigo-655 hover:bg-indigo-600 text-white px-3.5 py-1.8 rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer hover:scale-102 active:scale-98 duration-150">
-                  <Plus className="size-4" /> Registrar Trade
-                </button>
+              <Link to={`/trades/new?accountId=${account.id}`} className={cn(buttonVariants())}>
+                <Plus className="size-4" /> Registrar Trade
               </Link>
             </CardHeader>
             <CardContent>
@@ -1094,14 +1160,63 @@ export default function AccountDetail() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  <div className="relative w-full max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                    <Input
-                      placeholder="Filtrar por activo o estrategia..."
-                      value={globalFilter}
-                      onChange={(e) => setGlobalFilter(e.target.value)}
-                      className="pl-9 h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-xl"
-                    />
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center justify-between pb-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Búsqueda */}
+                      <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                        <Input
+                          placeholder="Filtrar por activo o estrategia..."
+                          value={globalFilter}
+                          onChange={(e) => setGlobalFilter(e.target.value)}
+                          className="pl-9 h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-xl"
+                        />
+                      </div>
+
+                      {/* Filtro de Activo */}
+                      <div className="w-full sm:w-44">
+                        <Select value={selectedAsset} onValueChange={handleAssetChange}>
+                          <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
+                            <SelectValue placeholder="Activo (Todos)" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
+                            <SelectItem value="all" className="text-xs font-semibold">Activo (Todos)</SelectItem>
+                            {assetFacets.map(facet => (
+                              <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
+                                {facet.value} ({facet.count})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Filtro de Dirección */}
+                      <div className="w-full sm:w-44">
+                        <Select value={selectedDirection} onValueChange={handleDirectionChange}>
+                          <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
+                            <SelectValue placeholder="Dirección (Todas)" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
+                            <SelectItem value="all" className="text-xs font-semibold">Dirección (Todas)</SelectItem>
+                            {directionFacets.map(facet => (
+                              <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
+                                {facet.value} ({facet.count})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Botón de limpiar filtros */}
+                      {hasActiveFilters && (
+                        <button
+                          onClick={clearAllFilters}
+                          className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 h-9"
+                        >
+                          Limpiar Filtros
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-xs">

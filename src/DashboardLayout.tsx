@@ -3,6 +3,8 @@ import { Outlet, Link } from 'react-router'
 import { AppSidebar } from './components/app-sidebar'
 
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { cn } from './lib/utils'
+import { buttonVariants } from './components/ui/button'
 
 
 export default function DashboardLayout() {
@@ -18,17 +20,14 @@ export default function DashboardLayout() {
             <div className="flex items-center gap-4">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <div className="text-foreground text-lg font-bold md:hidden">
-                Trader Tracker
+                Diario del Trader
               </div>
             </div>
 
             <div className="flex-1"></div>
 
             <div className="flex items-center gap-4">
-              <button className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
-                <Link to="/trades/new">+ Nuevo Trade</Link>
-              </button>
-              <div className="bg-muted border-border size-8 rounded-full border"></div>
+                <Link to="/trades/new" className={cn(buttonVariants()) }>+ Nuevo Trade</Link>
             </div>
           </header>
 
