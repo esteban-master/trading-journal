@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useAccountDetail } from '@/hooks/useAccounts';
 import { useTrades } from '@/hooks/useTrades';
+import { useWithdrawals } from '@/hooks/useWithdrawals';
 import {
   ArrowLeft,
   Activity,
@@ -23,6 +24,7 @@ import {
   Sparkles,
   Coins,
   Briefcase,
+  Landmark,
 } from 'lucide-react';
 import {
   ColumnDef,
@@ -68,6 +70,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { formatDate } from '@/lib/formatDate';
 import EvaluationPanel from '@/components/accounts/EvaluationPanel';
+import { CreateWithdrawalDialog } from '@/components/accounts/CreateWithdrawalDialog';
 
 // Definición de columnas para TanStack Table
 const columns: ColumnDef<Trade>[] = [
@@ -292,8 +295,9 @@ export default function AccountDetail() {
 
   const { data: account, isLoading: accountLoading, error: accountError } = useAccountDetail(id);
   const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
+  const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(id);
 
-  const loading = accountLoading || tradesLoading;
+  const loading = accountLoading || tradesLoading || withdrawalsLoading;
 
   const error = accountError ? 'No se pudo cargar la cuenta. Verifica tu conexión.' : (account === null && !accountLoading ? 'La cuenta no existe.' : null);
 
@@ -405,7 +409,12 @@ export default function AccountDetail() {
   const pnlNetoDecimal = closedTrades.reduce((acc, t) => acc.plus(new Decimal(t.pnl || 0)), new Decimal(0));
   const pnlNeto = pnlNetoDecimal.toNumber();
 
-  const currentBalanceDecimal = new Decimal(account.startingBalance).plus(pnlNetoDecimal);
+  const isRealOrFundedPhase = account.status === 'Real' || viewPhase === 3;
+  const applicableWithdrawals = isRealOrFundedPhase ? withdrawals : [];
+
+  const withdrawalsTotalDecimal = applicableWithdrawals.reduce((acc, w) => acc.plus(new Decimal(w.amount || 0)), new Decimal(0));
+
+  const currentBalanceDecimal = new Decimal(account.startingBalance).plus(pnlNetoDecimal).minus(withdrawalsTotalDecimal);
   const currentBalance = currentBalanceDecimal.toNumber();
 
   const equity = account.equity !== undefined && account.equity !== null && account.equity !== account.currentBalance
@@ -451,9 +460,14 @@ export default function AccountDetail() {
   const equityPoints = [{ date: 'Inicio', balance: account.startingBalance }];
   let runningBalanceDecimal = new Decimal(account.startingBalance);
 
-  cronTrades.forEach(t => {
-    runningBalanceDecimal = runningBalanceDecimal.plus(new Decimal(t.pnl || 0));
-    const dateObj = new Date(t.date);
+  const cronEvents = [
+    ...closedTrades.map(t => ({ type: 'trade', date: new Date(t.date).getTime(), pnl: t.pnl || 0 })),
+    ...applicableWithdrawals.map(w => ({ type: 'withdrawal', date: new Date(w.date).getTime(), pnl: -w.amount }))
+  ].sort((a, b) => a.date - b.date);
+
+  cronEvents.forEach(evt => {
+    runningBalanceDecimal = runningBalanceDecimal.plus(new Decimal(evt.pnl));
+    const dateObj = new Date(evt.date);
     const formattedDate = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
     equityPoints.push({
       date: formattedDate,
@@ -745,6 +759,15 @@ export default function AccountDetail() {
               <Briefcase className="size-4 mr-1.5" />
               Operaciones ({phaseTrades.length})
             </TabsTrigger>
+            {(account.status === 'Real' || account.status === 'Funded') && (
+              <TabsTrigger
+                value="withdrawals"
+                className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-emerald-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 transition-all font-bold"
+              >
+                <Landmark className="size-4 mr-1.5" />
+                Retiros ({withdrawals.length})
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <span className="hidden sm:inline-flex items-center text-xs text-indigo-400 font-semibold select-none">
@@ -1143,6 +1166,59 @@ export default function AccountDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* TAB 4: RETIROS */}
+        {(account.status === 'Real' || account.status === 'Funded') && (
+          <TabsContent value="withdrawals" className="mt-6">
+            <Card className="shadow-xs">
+              <CardHeader className="flex flex-row justify-between items-center pb-3">
+                <div>
+                  <CardTitle className="text-lg">Historial de Retiros</CardTitle>
+                  <CardDescription>Visualiza todos los retiros (payouts) registrados para esta cuenta.</CardDescription>
+                </div>
+                <CreateWithdrawalDialog account={account} />
+              </CardHeader>
+              <CardContent>
+                {withdrawals.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                    <Landmark className="size-8 mx-auto text-slate-400 mb-3" />
+                    <p className="text-slate-500">No hay retiros registrados aún.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
+                    <Table>
+                      <TableHeader className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                        <TableRow>
+                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Fecha</TableHead>
+                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Monto</TableHead>
+                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Notas</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {withdrawals.map((withdrawal) => (
+                          <TableRow
+                            key={withdrawal.id}
+                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors"
+                          >
+                            <TableCell className="px-4 py-3 align-middle text-slate-500 font-medium dark:text-slate-400">
+                              {new Date(withdrawal.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </TableCell>
+                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-emerald-500">
+                              ${withdrawal.amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="px-4 py-3 align-middle text-slate-600 dark:text-slate-300">
+                              {withdrawal.notes || <span className="text-slate-400">—</span>}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

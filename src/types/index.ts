@@ -39,3 +39,11 @@ export interface Trade {
   status: TradeStatus;
   phase?: number;
 }
+
+export interface Withdrawal {
+  id: string;
+  accountId: string;
+  amount: number;
+  date: string; // ISO date string
+  notes?: string;
+}
