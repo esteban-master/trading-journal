@@ -294,7 +294,7 @@ export default function AccountDetail() {
   const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
 
   const loading = accountLoading || tradesLoading;
-  console.log({ trades, account, accountLoading, tradesLoading });
+
   const error = accountError ? 'No se pudo cargar la cuenta. Verifica tu conexión.' : (account === null && !accountLoading ? 'La cuenta no existe.' : null);
 
   // Estado para la fase seleccionada en la vista (por defecto Fase 1 hasta que cargue la cuenta)
@@ -318,8 +318,9 @@ export default function AccountDetail() {
   // Filtramos los trades para mostrar y calcular solo los que pertenecen a la fase que estamos viendo.
   // A los trades antiguos que no tienen fase, se les asigna fase 1 por defecto.
   const phaseTrades = useMemo(() => {
+    if (account?.status === 'Real') return trades;
     return trades.filter(t => (t.phase || 1) === viewPhase);
-  }, [trades, viewPhase]);
+  }, [trades, viewPhase, account?.status]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -499,8 +500,8 @@ export default function AccountDetail() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
               {account.name}
-              <Badge variant={isFunded ? 'success' : isBlown ? 'destructive' : 'info'}>
-                {account.status}
+              <Badge variant={isFunded ? 'success' : isBlown ? 'destructive' : account.status === 'Real' ? 'default' : 'info'}>
+                {account.status === 'Real' ? 'Real' : account.status}
               </Badge>
             </h1>
             <p className="text-sm text-slate-500">
@@ -510,27 +511,29 @@ export default function AccountDetail() {
         </div>
 
         {/* Phase Selector Tabs */}
-        <div className="bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl">
-          <Tabs defaultValue="1" value={String(viewPhase)} onValueChange={(v) => setViewPhase(Number(v))}>
-            <TabsList className="bg-transparent">
-              <TabsTrigger value="1" className="data-[state=active]:shadow-sm">Fase 1</TabsTrigger>
-              {(account.totalPhases ?? 1) >= 2 && (
-                <TabsTrigger value="2" className="data-[state=active]:shadow-sm" disabled={account.status !== 'Funded' && (account.phase || 1) < 2}>
-                  Fase 2
-                </TabsTrigger>
-              )}
-              {account.status === 'Funded' && (
-                <TabsTrigger value="3" className="data-[state=active]:text-emerald-600 data-[state=active]:bg-emerald-50 dark:data-[state=active]:bg-emerald-950/30 data-[state=active]:shadow-sm">
-                  Funded
-                </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
-        </div>
+        {account.status !== 'Real' && (
+          <div className="bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl">
+            <Tabs defaultValue="1" value={String(viewPhase)} onValueChange={(v) => setViewPhase(Number(v))}>
+              <TabsList className="bg-transparent">
+                <TabsTrigger value="1" className="data-[state=active]:shadow-sm">Fase 1</TabsTrigger>
+                {(account.totalPhases ?? 1) >= 2 && (
+                  <TabsTrigger value="2" className="data-[state=active]:shadow-sm" disabled={account.status !== 'Funded' && (account.phase || 1) < 2}>
+                    Fase 2
+                  </TabsTrigger>
+                )}
+                {account.status === 'Funded' && (
+                  <TabsTrigger value="3" className="data-[state=active]:text-emerald-600 data-[state=active]:bg-emerald-50 dark:data-[state=active]:bg-emerald-950/30 data-[state=active]:shadow-sm">
+                    Funded
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
       </div>
 
       {/* Panel de Evaluación (Condicional) */}
-      <EvaluationPanel account={account} viewPhase={viewPhase} />
+      {account.status !== 'Real' && <EvaluationPanel account={account} viewPhase={viewPhase} />}
 
       {/* Grid de Métricas Clave al estilo Dashboard */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">

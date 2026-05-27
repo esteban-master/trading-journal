@@ -146,7 +146,7 @@ export default function TradeForm() {
                         <SelectGroup>
                           {accounts.map(acc => (
                             <SelectItem key={acc.id} value={acc.id}>
-                              {acc.name} - {acc.firm}
+                              {acc.name} {acc.status === 'Real' ? '(Real 🏦)' : '(Fondeo)'} - {acc.firm}
                             </SelectItem>
                           ))}
                         </SelectGroup>

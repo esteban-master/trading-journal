@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -46,7 +46,7 @@ const createAccountSchema = z.object({
     .string()
     .min(2, 'Introduce el nombre de la firma')
     .max(40, 'Máximo 40 caracteres'),
-  status: z.enum(['Evaluation', 'Funded', 'Blown', 'Payout'] as const, {
+  status: z.enum(['Evaluation', 'Funded', 'Blown', 'Payout', 'Real'] as const, {
     error: 'Selecciona un estado para la cuenta',
   }),
   cost: z.coerce
@@ -78,8 +78,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
   const createAccountMutation = useCreateAccount()
   const saving = createAccountMutation.isPending
 
-  const form = useForm<CreateAccountValues, unknown, CreateAccountValues>({
-    resolver: zodResolver(createAccountSchema) as any,
+  const form = useForm<CreateAccountValues>({
+    resolver: zodResolver(createAccountSchema) as unknown as Resolver<CreateAccountValues>,
     defaultValues: {
       name: '',
       firm: '',
@@ -102,7 +102,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         name: values.name,
         firm: values.firm,
         status: values.status,
-        cost: values.cost,
+        cost: values.status === 'Real' ? 0 : values.cost,
         startingBalance: values.startingBalance,
         currentBalance: values.startingBalance,
         equity: values.startingBalance,
@@ -155,275 +155,281 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1">
-
-            {/* Nombre de la Cuenta */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre de la Cuenta</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Layers className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                      <Input
-                        placeholder="ej. Topstep 50k #1"
-                        className="pl-9"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    Un alias que te permita identificar esta cuenta fácilmente.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Firma */}
+            
+            {/* Contenedor scrollable para los campos */}
+            <div className="flex flex-col gap-5 max-h-[55vh] md:max-h-[60vh] overflow-y-auto pr-3 -mr-3 pb-2">
+              {/* Nombre de la Cuenta */}
               <FormField
                 control={form.control}
-                name="firm"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Firma / Empresa</FormLabel>
-                    <Select
-                      onValueChange={(val) => {
-                        if (val === 'Otra') {
-                          field.onChange('')
-                        } else {
-                          field.onChange(val)
-                        }
-                      }}
-                      value={FIRMS.includes(field.value) ? field.value : 'Otra'}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecciona una firma" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          {FIRMS.map((firm) => (
-                            <SelectItem key={firm} value={firm}>
-                              {firm}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    {/* Si selecciona "Otra", mostrar input libre */}
-                    {(!FIRMS.slice(0, -1).includes(field.value)) && (
-                      <Input
-                        placeholder="Nombre de la firma"
-                        className="mt-2"
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
-                      />
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Estado */}
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Estado actual" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="Evaluation">Evaluación</SelectItem>
-                          <SelectItem value="Funded">Fondeada ✅</SelectItem>
-                          <SelectItem value="Payout">Payout pendiente 💰</SelectItem>
-                          <SelectItem value="Blown">Quemada ❌</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Costo */}
-              <FormField
-                control={form.control}
-                name="cost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Costo de Compra (USD)</FormLabel>
+                    <FormLabel>Nombre de la Cuenta</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                        <Layers className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                         <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="49.00"
+                          placeholder="ej. Topstep 50k #1"
                           className="pl-9"
                           {...field}
                         />
                       </div>
                     </FormControl>
-                    <FormDescription>Lo que pagaste por la evaluación.</FormDescription>
+                    <FormDescription>
+                      Un alias que te permita identificar esta cuenta fácilmente.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Balance Inicial */}
-              <FormField
-                control={form.control}
-                name="startingBalance"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Balance de la Cuenta</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <div className="grid grid-cols-2 gap-4">
+                {/* Firma */}
+                <FormField
+                  control={form.control}
+                  name="firm"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Firma / Empresa</FormLabel>
+                      <Select
+                        onValueChange={(val) => {
+                          if (val === 'Otra') {
+                            field.onChange('')
+                          } else {
+                            field.onChange(val)
+                          }
+                        }}
+                        value={FIRMS.includes(field.value) ? field.value : 'Otra'}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecciona una firma" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectGroup>
+                            {FIRMS.map((firm) => (
+                              <SelectItem key={firm} value={firm}>
+                                {firm}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      {/* Si selecciona "Otra", mostrar input libre */}
+                      {(!FIRMS.slice(0, -1).includes(field.value)) && (
                         <Input
-                          type="number"
-                          step="1000"
-                          placeholder="50000"
-                          className="pl-9"
-                          {...field}
+                          placeholder="Nombre de la firma"
+                          className="mt-2"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
                         />
-                      </div>
-                    </FormControl>
-                    <FormDescription>Tamaño de la cuenta (ej. 50,000).</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {/* Campos de Evaluación condicionales */}
-            {form.watch('status') === 'Evaluation' && (
-              <div className="flex flex-col gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="size-4 text-indigo-500" />
-                  <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="targetProfitPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Objetivo Profit Fase 1 (%)</FormLabel>
+                {/* Estado */}
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estado</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <div className="relative">
-                            <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                          </div>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Estado actual" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="maxDrawdownPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Max Drawdown Fase 1 (%)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {(form.watch('totalPhases') || 1) >= 2 && (
-                  <>
-                    <div className="flex items-center gap-2 mt-2">
-                      <TrendingUp className="size-4 text-indigo-400" />
-                      <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 2</h5>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="targetProfitPercentagePhase2"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Objetivo Profit Fase 2 (%)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="maxDrawdownPercentagePhase2"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Max Drawdown Fase 2 (%)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </>
-                )}
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phase"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fase Actual</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="1" {...field} value={field.value || ''} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="totalPhases"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Total de Fases</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="1" {...field} value={field.value || ''} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="Evaluation">Evaluación</SelectItem>
+                            <SelectItem value="Funded">Fondeada ✅</SelectItem>
+                            <SelectItem value="Payout">Payout pendiente 💰</SelectItem>
+                            <SelectItem value="Blown">Quemada ❌</SelectItem>
+                            <SelectItem value="Real">Real (Personal) 🏦</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            )}
+
+              <div className={form.watch('status') === 'Real' ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
+                {/* Costo */}
+                {form.watch('status') !== 'Real' && (
+                  <FormField
+                    control={form.control}
+                    name="cost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Costo de Compra (USD)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="49.00"
+                              className="pl-9"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormDescription>Lo que pagaste por la evaluación.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Balance Inicial */}
+                <FormField
+                  control={form.control}
+                  name="startingBalance"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Balance de la Cuenta</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                          <Input
+                            type="number"
+                            step="1000"
+                            placeholder="50000"
+                            className="pl-9"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>Tamaño de la cuenta (ej. 50,000).</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Campos de Evaluación condicionales */}
+              {form.watch('status') === 'Evaluation' && (
+                <div className="flex flex-col gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="size-4 text-indigo-500" />
+                    <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="targetProfitPercentage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Objetivo Profit Fase 1 (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="maxDrawdownPercentage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Max Drawdown Fase 1 (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {(form.watch('totalPhases') || 1) >= 2 && (
+                    <>
+                      <div className="flex items-center gap-2 mt-2">
+                        <TrendingUp className="size-4 text-indigo-400" />
+                        <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 2</h5>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="targetProfitPercentagePhase2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Objetivo Profit Fase 2 (%)</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="maxDrawdownPercentagePhase2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Max Drawdown Fase 2 (%)</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phase"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fase Actual</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="totalPhases"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Total de Fases</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             <Separator />
 

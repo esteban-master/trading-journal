@@ -61,10 +61,7 @@ export function useTrades(accountId?: string) {
           q = query(tradesRef, orderBy('date', 'desc'));
         }
 
-        console.log('useTrades query 1');
         const snap = await getDocs(q);
-        console.log('useTrades query 2', snap.docs);
-
         return snap.docs.map(d => normalizeTrade(d.id, d.data()));
       } catch (error) {
         console.error('Error fetching trades:', error);

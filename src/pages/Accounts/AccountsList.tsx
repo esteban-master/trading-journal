@@ -93,9 +93,9 @@ export default function AccountsList() {
                     <CardDescription className="mt-1">{account.firm} • ${account.startingBalance.toLocaleString()}</CardDescription>
                   </div>
                   <Badge 
-                    variant={isFunded ? 'success' : isBlown ? 'destructive' : 'info'}
+                    variant={isFunded ? 'success' : isBlown ? 'destructive' : account.status === 'Real' ? 'default' : 'info'}
                   >
-                    {account.status}
+                    {account.status === 'Real' ? 'Real' : account.status}
                   </Badge>
                 </div>
               </CardHeader>
