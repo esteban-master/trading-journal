@@ -23,6 +23,7 @@ const normalizeWithdrawal = (docId: string, data: DocumentData): Withdrawal => {
     id: docId,
     accountId: data.accountId,
     amount: data.amount,
+    netAmount: data.netAmount,
     date: data.date instanceof Timestamp
       ? data.date.toDate().toISOString()
       : data.date ?? new Date().toISOString(),
@@ -79,6 +80,7 @@ export function useCreateWithdrawal() {
         
         // Calcular nuevos balances usando Decimal
         const currentBalance = new Decimal(data.currentBalance || 0);
+        const startingBalance = new Decimal(data.startingBalance || 0);
         const equity = new Decimal(data.equity || data.currentBalance || 0);
         const totalWithdrawals = new Decimal(data.totalWithdrawals || 0);
         const withdrawalAmount = new Decimal(newWithdrawal.amount);
@@ -87,11 +89,25 @@ export function useCreateWithdrawal() {
            throw new Error("El monto de retiro supera el balance actual.");
         }
 
+        if (data.status === 'Funded' || data.status === 'Real') {
+          const profit = currentBalance.minus(startingBalance);
+          if (profit.lessThan(100)) {
+            throw new Error(`Debes tener al menos $100 de ganancia para retirar. Ganancia actual: $${profit.toNumber()}`);
+          }
+          if (withdrawalAmount.greaterThan(profit)) {
+             throw new Error(`No puedes retirar más de tu ganancia actual ($${profit.toNumber()}).`);
+          }
+        }
+
+        const profitSplit = data.status === 'Real' ? 100 : (data.profitSplit ?? 100);
+        const netAmount = withdrawalAmount.mul(profitSplit).div(100).toNumber();
+
         // Crear el documento de retiro
         const newWithdrawalRef = doc(collection(db, withdrawalsCollectionKey));
         transaction.set(newWithdrawalRef, {
           accountId: newWithdrawal.accountId,
           amount: newWithdrawal.amount,
+          netAmount: netAmount,
           date: newWithdrawal.date,
           createdAt: Timestamp.fromDate(new Date(newWithdrawal.date)),
           notes: newWithdrawal.notes || ''

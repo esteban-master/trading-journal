@@ -413,6 +413,13 @@ export default function AccountDetail() {
   const applicableWithdrawals = isRealOrFundedPhase ? withdrawals : [];
 
   const withdrawalsTotalDecimal = applicableWithdrawals.reduce((acc, w) => acc.plus(new Decimal(w.amount || 0)), new Decimal(0));
+  
+  const totalNetWithdrawals = applicableWithdrawals.reduce((acc, w) => {
+    const split = account.status === 'Real' ? 100 : (account.profitSplit ?? 100);
+    return acc.plus(new Decimal(w.netAmount || (w.amount * split / 100) || 0));
+  }, new Decimal(0)).toNumber();
+  const costOrOne = account.cost > 0 ? account.cost : 1;
+  const roi = ((totalNetWithdrawals / costOrOne) * 100).toFixed(1);
 
   const currentBalanceDecimal = new Decimal(account.startingBalance).plus(pnlNetoDecimal).minus(withdrawalsTotalDecimal);
   const currentBalance = currentBalanceDecimal.toNumber();
@@ -1022,7 +1029,7 @@ export default function AccountDetail() {
                 <CardDescription>Resumen de costos de cuenta, retiros y pnl final.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
                   <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
                     <span className="text-slate-400 block text-[10px] uppercase font-semibold">Balance Inicial</span>
                     <strong className="text-sm font-extrabold text-slate-750 dark:text-slate-200">
@@ -1036,9 +1043,21 @@ export default function AccountDetail() {
                     </strong>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Retiros</span>
-                    <strong className="text-sm font-extrabold text-emerald-500">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Retiros (Brutos)</span>
+                    <strong className="text-sm font-extrabold text-slate-600 dark:text-slate-300">
                       ${account.totalWithdrawals.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Retiros (Netos)</span>
+                    <strong className="text-sm font-extrabold text-emerald-500">
+                      ${totalNetWithdrawals.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">ROI (Neto)</span>
+                    <strong className={cn("text-sm font-extrabold", totalNetWithdrawals >= account.cost ? "text-emerald-500" : "text-amber-500")}>
+                      {roi}%
                     </strong>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
@@ -1190,7 +1209,8 @@ export default function AccountDetail() {
                       <TableHeader className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
                         <TableRow>
                           <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Fecha</TableHead>
-                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Monto</TableHead>
+                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Monto Retirado</TableHead>
+                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Monto Neto</TableHead>
                           <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Notas</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1203,8 +1223,11 @@ export default function AccountDetail() {
                             <TableCell className="px-4 py-3 align-middle text-slate-500 font-medium dark:text-slate-400">
                               {new Date(withdrawal.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </TableCell>
-                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-emerald-500">
+                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-slate-700 dark:text-slate-200">
                               ${withdrawal.amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-emerald-500">
+                              ${(withdrawal.netAmount || (withdrawal.amount * (account.status === 'Real' ? 100 : (account.profitSplit ?? 100)) / 100)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell className="px-4 py-3 align-middle text-slate-600 dark:text-slate-300">
                               {withdrawal.notes || <span className="text-slate-400">—</span>}

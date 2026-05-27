@@ -61,6 +61,7 @@ const createAccountSchema = z.object({
   maxDrawdownPercentagePhase2: z.coerce.number().optional(),
   phase: z.coerce.number().optional(),
   totalPhases: z.coerce.number().optional(),
+  profitSplit: z.coerce.number().min(0).max(100).optional(),
 })
 
 type CreateAccountValues = z.infer<typeof createAccountSchema>
@@ -92,6 +93,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       maxDrawdownPercentagePhase2: 10,
       phase: 1,
       totalPhases: 2,
+      profitSplit: 80,
     },
   })
 
@@ -113,6 +115,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : undefined,
         phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
         totalPhases: isEval ? values.totalPhases : undefined,
+        profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
       })
 
       toast.success('Cuenta creada exitosamente', {
@@ -311,6 +314,27 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                     </FormItem>
                   )}
                 />
+
+                {/* Profit Split */}
+                {form.watch('status') !== 'Real' && (
+                  <FormField
+                    control={form.control}
+                    name="profitSplit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Profit Split (%)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" min="0" max="100" className="pr-8" {...field} value={field.value || ''} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                          </div>
+                        </FormControl>
+                        <FormDescription>Tu % de ganancias.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
               {/* Campos de Evaluación condicionales */}

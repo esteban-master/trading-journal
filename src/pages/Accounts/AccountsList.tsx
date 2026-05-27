@@ -12,7 +12,14 @@ export default function AccountsList() {
 
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
   const totalWithdrawals = accounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
-  const netProfit = totalWithdrawals - totalCost;
+  
+  const totalNetWithdrawals = accounts.reduce((acc, curr) => {
+    const split = curr.status === 'Real' ? 100 : (curr.profitSplit ?? 100);
+    const net = curr.totalWithdrawals * split / 100;
+    return acc + net;
+  }, 0);
+
+  const netProfit = totalNetWithdrawals - totalCost;
   const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
 
   return (
@@ -47,8 +54,11 @@ export default function AccountsList() {
               <DollarSign className="size-4 text-emerald-500" />
             </CardDescription>
             <CardTitle className="text-2xl font-bold text-emerald-500">
-              ${totalWithdrawals.toLocaleString()}
+              ${totalNetWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </CardTitle>
+            <CardDescription className="text-xs mt-1 text-slate-400">
+              Monto Bruto: ${totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </CardDescription>
           </CardHeader>
         </Card>
         <Card>
@@ -114,9 +124,15 @@ export default function AccountsList() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Retiros Totales</span>
+                    <span className="text-slate-500">Retiros (Neto)</span>
                     <span className="font-semibold text-emerald-500">
-                      ${account.totalWithdrawals.toLocaleString()}
+                      ${(account.totalWithdrawals * (account.status === 'Real' ? 100 : (account.profitSplit ?? 100)) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Retiros (Bruto)</span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">
+                      ${account.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

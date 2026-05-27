@@ -67,6 +67,13 @@ export function CreateWithdrawalDialog({ account }: CreateWithdrawalDialogProps)
     },
   });
 
+  const profitSplit = account.status === 'Real' ? 100 : (account.profitSplit ?? 100);
+  const amountToWithdraw = form.watch('amount') || 0;
+  const netAmount = (amountToWithdraw * profitSplit) / 100;
+  const profit = account.currentBalance - account.startingBalance;
+  const isFundedOrReal = account.status === 'Funded' || account.status === 'Real';
+  const hasEnoughProfit = !isFundedOrReal || profit >= 100;
+
   const onSubmit = async (values: CreateWithdrawalValues) => {
     if (values.amount > account.currentBalance) {
       form.setError('amount', { message: 'El monto supera el balance actual' });
@@ -110,6 +117,13 @@ export function CreateWithdrawalDialog({ account }: CreateWithdrawalDialogProps)
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             
+            {!hasEnoughProfit && (
+              <div className="bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 p-3 rounded-lg text-sm border border-rose-200 dark:border-rose-900/50">
+                <p className="font-bold">Ganancia Insuficiente</p>
+                <p>Debes tener al menos $100 de ganancia para retirar. Ganancia actual: ${profit.toLocaleString()}</p>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="amount"
@@ -124,12 +138,18 @@ export function CreateWithdrawalDialog({ account }: CreateWithdrawalDialogProps)
                         step="0.01"
                         placeholder="500.00"
                         className="pl-9 text-emerald-600 font-bold"
+                        disabled={!hasEnoughProfit}
                         {...field}
                       />
                     </div>
                   </FormControl>
-                  <FormDescription>
-                    Balance disponible: ${account.currentBalance.toLocaleString()}
+                  <FormDescription className="flex flex-col gap-1 mt-1">
+                    <span>Balance disponible: ${account.currentBalance.toLocaleString()}</span>
+                    {amountToWithdraw > 0 && profitSplit < 100 && (
+                      <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                        Recibirás aproximadamente: ${netAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Profit Split: {profitSplit}%)
+                      </span>
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -175,7 +195,7 @@ export function CreateWithdrawalDialog({ account }: CreateWithdrawalDialogProps)
             <div className="pt-4 flex justify-end">
               <Button 
                 type="submit" 
-                disabled={createWithdrawalMutation.isPending}
+                disabled={createWithdrawalMutation.isPending || !hasEnoughProfit}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white w-full"
               >
                 {createWithdrawalMutation.isPending ? (

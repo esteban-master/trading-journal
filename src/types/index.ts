@@ -10,6 +10,7 @@ export interface Account {
   currentBalance: number;
   equity: number;
   totalWithdrawals: number;
+  profitSplit?: number; // e.g. 80 for 80%
   createdAt: string; // ISO date string
   
   // Evaluation Rules
@@ -44,6 +45,7 @@ export interface Withdrawal {
   id: string;
   accountId: string;
   amount: number;
+  netAmount?: number; // the amount actually received after profit split
   date: string; // ISO date string
   notes?: string;
 }
