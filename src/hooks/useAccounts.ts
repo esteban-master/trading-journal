@@ -78,7 +78,6 @@ export function useCreateAccount() {
 
   return useMutation({
     mutationFn: async (newAccount: Omit<Account, 'id' | 'createdAt'>) => {
-      console.log({newAccount})
       const docRef = await addDoc(collection(db, accountColectionKey), {
         ...newAccount,
         createdAt: Timestamp.now()

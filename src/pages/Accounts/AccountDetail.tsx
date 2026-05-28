@@ -32,10 +32,6 @@ import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { AccountWithDrawals } from './AccountWithDrawals';
 import { AccountEquityChart } from './AccountEquityChart';
 import { AccountOperationsByAsset } from './AccountOperationsByAsset';
-// import { useAccountDetailStore } from '@/store/useAccountDetailStore';
-// import AccountDetailMetrics from '@/components/accounts/detail/AccountDetailMetrics';
-
-// Definición de columnas para TanStack Table
 
 
 export default function AccountDetail() {
@@ -50,23 +46,6 @@ export default function AccountDetail() {
 
   const error = accountError ? 'No se pudo cargar la cuenta. Verifica tu conexión.' : (account === null && !accountLoading ? 'La cuenta no existe.' : null);
 
-  // Estado para la fase seleccionada en la vista (por defecto Fase 1 hasta que cargue la cuenta)
-  // const [viewPhase, setViewPhase] = useState<number>(1);
-
-  // Mantener la fase de vista sincronizada cuando la cuenta cambia o se carga por primera vez
-  // useEffect(() => {
-  //   if (account && account.phase) {
-  //     setViewPhase(account.phase)
-  //   }
-  // }, [account]);
-
-
-  // --- Estados de UI ---
-
-
-  // --- Aislamiento de Fases ---
-  // Filtramos los trades para mostrar y calcular solo los que pertenecen a la fase que estamos viendo.
-  // A los trades antiguos que no tienen fase, se les asigna fase 1 por defecto.
   const phaseTrades = useMemo(() => {
     if (account?.status === 'Real') return trades;
     return trades.filter(t => (t.phase || 1) === viewPhase);
@@ -210,7 +189,7 @@ export default function AccountDetail() {
   const maxVal = Math.max(...balances, account.startingBalance) * 1.002;
   const minVal = Math.min(...balances, account.startingBalance) * 0.998;
 
-  console.log({ equityPoints, balances })
+
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
