@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useAccountDetail } from '@/hooks/useAccounts';
 import { useTrades } from '@/hooks/useTrades';
@@ -6,18 +6,11 @@ import { useWithdrawals } from '@/hooks/useWithdrawals';
 import {
   ArrowLeft,
   Activity,
-  Plus,
   Loader2,
   AlertCircle,
-  Image as ImageIcon,
-  ExternalLink,
-  ChevronsUpDown,
-  ChevronLeft,
-  ChevronRight,
   TrendingDown,
   ShieldAlert,
   TrendingUp,
-  Search,
   DollarSign,
   Percent,
   Scale,
@@ -26,286 +19,29 @@ import {
   Briefcase,
   Landmark,
 } from 'lucide-react';
-import {
-  ColumnDef,
-  SortingState,
-  ColumnFiltersState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Decimal } from 'decimal.js';
-
-import { Trade } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
-import { formatDate } from '@/lib/formatDate';
 import EvaluationPanel from '@/components/accounts/EvaluationPanel';
-import { CreateWithdrawalDialog } from '@/components/accounts/CreateWithdrawalDialog';
-import { buttonVariants } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TradesList } from './TradesList';
+import { AccountPhaseSelector } from './AccountPhaseSelector';
+import { useAccountDetailStore } from '@/store/useAccountDetailStore';
+import { AccountWithDrawals } from './AccountWithDrawals';
+import { AccountEquityChart } from './AccountEquityChart';
+import { AccountOperationsByAsset } from './AccountOperationsByAsset';
+// import { useAccountDetailStore } from '@/store/useAccountDetailStore';
+// import AccountDetailMetrics from '@/components/accounts/detail/AccountDetailMetrics';
 
 // Definición de columnas para TanStack Table
-const columns: ColumnDef<Trade>[] = [
-  {
-    accessorKey: 'date',
-    header: ({ column }) => {
-      return (
-        <button
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-        >
-          Fecha
-          <ChevronsUpDown className="size-3.5 text-muted-foreground ml-1" />
-        </button>
-      );
-    },
-    cell: ({ row }) => {
-      const date = new Date(row.getValue('date'));
-      return (
-        <span className="text-slate-500 font-medium dark:text-slate-400">
-          {formatDate({ size: 'xxsminute', date })}
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: 'asset',
-    filterFn: (row, columnId, filterValue) => {
-      const val = row.getValue(columnId) as string;
-      if (!val) return false;
-      return val.toUpperCase() === filterValue.toUpperCase();
-    },
-    header: ({ column }) => {
-      return (
-        <button
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-        >
-          Activo
-          <ChevronsUpDown className="size-3.5 text-muted-foreground ml-1" />
-        </button>
-      );
-    },
-    cell: ({ row }) => {
-      const asset: string = row.getValue('asset');
-      return (
-        <span className="font-bold tracking-tight text-slate-800 dark:text-slate-200">
-          {asset.toUpperCase()}
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: 'direction',
-    filterFn: (row, columnId, filterValue) => {
-      const val = row.getValue(columnId) as string;
-      if (!val) return false;
-      return val === filterValue;
-    },
-    header: 'Dirección',
-    cell: ({ row }) => {
-      const direction: 'Long' | 'Short' = row.getValue('direction');
-      const isLong = direction === 'Long';
-      return (
-        <Badge
-          variant="outline"
-          className={cn(
-            "font-semibold transition-all duration-300",
-            isLong
-              ? 'text-emerald-500 border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/30'
-              : 'text-rose-500 border-rose-500/20 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100/50 dark:hover:bg-rose-950/30'
-          )}
-        >
-          {direction}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: 'strategy',
-    header: 'Estrategia',
-    cell: ({ row }) => {
-      const strategy: string = row.getValue('strategy');
-      return strategy ? (
-        <Badge variant="secondary" className="font-medium bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">
-          {strategy}
-        </Badge>
-      ) : (
-        <span className="text-slate-400">—</span>
-      );
-    },
-  },
-  {
-    accessorKey: 'riskRewardRatio',
-    header: 'R:R',
-    cell: ({ row }) => {
-      const rr: number = row.getValue('riskRewardRatio');
-      return rr ? (
-        <span className="text-slate-650 dark:text-slate-350 font-medium">
-          1:{rr}
-        </span>
-      ) : (
-        <span className="text-slate-400">—</span>
-      );
-    },
-  },
-  {
-    accessorKey: 'pnl',
-    header: ({ column }) => {
-      return (
-        <button
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-        >
-          PnL
-          <ChevronsUpDown className="size-3.5 text-muted-foreground ml-1" />
-        </button>
-      );
-    },
-    cell: ({ row }) => {
-      const pnl = parseFloat(row.getValue('pnl'));
-      const isPositive = pnl >= 0;
-      return (
-        <span
-          className={cn(
-            "font-extrabold tracking-tight tabular-nums",
-            isPositive ? 'text-emerald-500' : 'text-rose-500'
-          )}
-        >
-          {isPositive ? '+' : ''}${pnl.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </span>
-      );
-    },
-  },
-  {
-    id: 'images',
-    header: 'Capturas',
-    cell: ({ row }) => {
-      const images: string[] = row.original.images || [];
-      if (images.length === 0) return <span className="text-slate-400 text-xs">—</span>;
 
-      return (
-        <TooltipProvider>
-          <Tooltip delayDuration={150}>
-            <Dialog>
-              <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <button className="flex items-center justify-center p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700/80 text-slate-500 hover:text-indigo-655 dark:text-slate-400 dark:hover:text-indigo-400 transition-all cursor-pointer shadow-xs hover:scale-105 duration-200 active:scale-95">
-                    <ImageIcon className="size-4" />
-                    {images.length > 1 && (
-                      <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full">
-                        {images.length}
-                      </span>
-                    )}
-                  </button>
-                </DialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="center" className="p-1 border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl rounded-xl w-48 transition-all duration-300">
-                <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-100 dark:border-slate-800">
-                  <img
-                    src={images[0]}
-                    alt="Preview"
-                    className="object-cover w-full h-full"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 text-[10px] text-white text-center font-semibold">
-                    Clic para ampliar
-                  </div>
-                </div>
-              </TooltipContent>
-              <DialogContent className="max-w-4xl p-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    <ImageIcon className="size-5 text-indigo-500" />
-                    Capturas del Trade - {row.original.asset.toUpperCase()}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-slate-500">
-                    Registrado el {new Date(row.original.date).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })} • {row.original.strategy || 'Sin estrategia'}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="mt-4 flex flex-col gap-4">
-                  {images.length === 1 ? (
-                    <div className="relative aspect-video max-h-[60vh] w-full overflow-hidden rounded-xl border border-slate-250 dark:border-slate-850 shadow-lg bg-slate-950 flex items-center justify-center">
-                      <img
-                        src={images[0]}
-                        alt="Screenshot"
-                        className="object-contain max-w-full max-h-full"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {images.map((imgUrl, idx) => (
-                          <div key={idx} className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 shadow-md bg-slate-950 flex items-center justify-center group hover:border-indigo-500/50 transition-all duration-300">
-                            <img
-                              src={imgUrl}
-                              alt={`Captura ${idx + 1}`}
-                              className="object-contain max-w-full max-h-full"
-                            />
-                            <a
-                              href={imgUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            >
-                              <ExternalLink className="size-4" />
-                            </a>
-                            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-semibold">
-                              Imagen {idx + 1}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    },
-  },
-];
 
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
+  const viewPhase = useAccountDetailStore(state => state.viewPhase)
   const { data: account, isLoading: accountLoading, error: accountError } = useAccountDetail(id);
   const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
   const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(id);
@@ -315,26 +51,18 @@ export default function AccountDetail() {
   const error = accountError ? 'No se pudo cargar la cuenta. Verifica tu conexión.' : (account === null && !accountLoading ? 'La cuenta no existe.' : null);
 
   // Estado para la fase seleccionada en la vista (por defecto Fase 1 hasta que cargue la cuenta)
-  const [viewPhase, setViewPhase] = useState<number>(1);
+  // const [viewPhase, setViewPhase] = useState<number>(1);
 
   // Mantener la fase de vista sincronizada cuando la cuenta cambia o se carga por primera vez
-  useEffect(() => {
-    if (account) {
-      if (account.status === 'Funded') {
-        setViewPhase(3);
-      } else if (account.phase) {
-        setViewPhase(account.phase);
-      }
-    }
-  }, [account]);
+  // useEffect(() => {
+  //   if (account && account.phase) {
+  //     setViewPhase(account.phase)
+  //   }
+  // }, [account]);
 
 
   // --- Estados de UI ---
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'date', desc: true }
-  ]);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
 
   // --- Aislamiento de Fases ---
   // Filtramos los trades para mostrar y calcular solo los que pertenecen a la fase que estamos viendo.
@@ -344,85 +72,6 @@ export default function AccountDetail() {
     return trades.filter(t => (t.phase || 1) === viewPhase);
   }, [trades, viewPhase, account?.status]);
 
-  // --- Conteo y Opciones Facetadas para Filtros ---
-  const assetFacets = useMemo(() => {
-    const counts: Record<string, number> = {};
-    phaseTrades.forEach(t => {
-      if (t.asset) {
-        const key = t.asset.toUpperCase();
-        counts[key] = (counts[key] || 0) + 1;
-      }
-    });
-    return Object.entries(counts)
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [phaseTrades]);
-
-  const directionFacets = useMemo(() => {
-    const counts: Record<string, number> = {};
-    phaseTrades.forEach(t => {
-      if (t.direction) {
-        counts[t.direction] = (counts[t.direction] || 0) + 1;
-      }
-    });
-    return Object.entries(counts)
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [phaseTrades]);
-
-  const selectedAsset = (columnFilters.find(f => f.id === 'asset')?.value as string) || 'all';
-  const selectedDirection = (columnFilters.find(f => f.id === 'direction')?.value as string) || 'all';
-
-  const handleAssetChange = (val: string) => {
-    setColumnFilters(prev => {
-      const filtered = prev.filter(f => f.id !== 'asset');
-      if (val === 'all') return filtered;
-      return [...filtered, { id: 'asset', value: val }];
-    });
-  };
-
-  const handleDirectionChange = (val: string) => {
-    setColumnFilters(prev => {
-      const filtered = prev.filter(f => f.id !== 'direction');
-      if (val === 'all') return filtered;
-      return [...filtered, { id: 'direction', value: val }];
-    });
-  };
-
-  const clearAllFilters = () => {
-    setColumnFilters([]);
-    setGlobalFilter('');
-  };
-
-  const hasActiveFilters = columnFilters.length > 0 || globalFilter !== '';
-
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: phaseTrades,
-    columns,
-    state: {
-      sorting,
-      globalFilter,
-      columnFilters,
-    },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    onColumnFiltersChange: setColumnFilters,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    globalFilterFn: (row, columnId, filterValue) => {
-      const value = row.getValue(columnId);
-      if (value === undefined || value === null) return false;
-      return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
-    },
-    initialState: {
-      pagination: {
-        pageSize: 5,
-      },
-    },
-  });
 
   if (loading) {
     return (
@@ -557,29 +206,11 @@ export default function AccountDetail() {
     });
   }
 
-  // Distribución por Activos
-  const assetsDataMap: Record<string, { count: number, wins: number, profit: Decimal }> = {};
-  closedTrades.forEach(t => {
-    const assetName = t.asset.toUpperCase();
-    if (!assetsDataMap[assetName]) {
-      assetsDataMap[assetName] = { count: 0, wins: 0, profit: new Decimal(0) };
-    }
-    assetsDataMap[assetName].count++;
-    if (t.pnl > 0) assetsDataMap[assetName].wins++;
-    assetsDataMap[assetName].profit = assetsDataMap[assetName].profit.plus(new Decimal(t.pnl || 0));
-  });
-
-  const assetsArray = Object.entries(assetsDataMap).map(([name, data]) => ({
-    name,
-    count: data.count,
-    winRate: data.count > 0 ? Math.round((data.wins / data.count) * 100) : 0,
-    profit: data.profit.toNumber()
-  })).sort((a, b) => b.count - a.count).slice(0, 4);
-
   const balances = equityPoints.map(p => p.balance);
   const maxVal = Math.max(...balances, account.startingBalance) * 1.002;
   const minVal = Math.min(...balances, account.startingBalance) * 0.998;
 
+  console.log({ equityPoints, balances })
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -604,25 +235,7 @@ export default function AccountDetail() {
         </div>
 
         {/* Phase Selector Tabs */}
-        {account.status !== 'Real' && (
-          <div className="bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl">
-            <Tabs defaultValue="1" value={String(viewPhase)} onValueChange={(v) => setViewPhase(Number(v))}>
-              <TabsList className="bg-transparent">
-                <TabsTrigger value="1" className="data-[state=active]:shadow-sm">Fase 1</TabsTrigger>
-                {(account.totalPhases ?? 1) >= 2 && (
-                  <TabsTrigger value="2" className="data-[state=active]:shadow-sm" disabled={account.status !== 'Funded' && (account.phase || 1) < 2}>
-                    Fase 2
-                  </TabsTrigger>
-                )}
-                {account.status === 'Funded' && (
-                  <TabsTrigger value="3" className="data-[state=active]:text-emerald-600 data-[state=active]:bg-emerald-50 dark:data-[state=active]:bg-emerald-950/30 data-[state=active]:shadow-sm">
-                    Funded
-                  </TabsTrigger>
-                )}
-              </TabsList>
-            </Tabs>
-          </div>
-        )}
+        {account.status !== 'Real' && <AccountPhaseSelector account={account} />}
       </div>
 
       {/* Panel de Evaluación (Condicional) */}
@@ -855,145 +468,10 @@ export default function AccountDetail() {
         <TabsContent value="overview" className="grid grid-cols-1 gap-6 lg:grid-cols-3 mt-6">
 
           {/* Gráfico de Equity Dinámico */}
-          <Card className="lg:col-span-2 shadow-xs">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div>
-                <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                  Curva de Equity (Balance en Tiempo Real)
-                </CardTitle>
-                <CardDescription>
-                  Representación gráfica del crecimiento de capital en tu cuenta trade a trade.
-                </CardDescription>
-              </div>
-              <Badge variant="outline" className="bg-indigo-500/5 text-indigo-500 dark:text-indigo-400 border-indigo-500/20 text-xs font-semibold">
-                {equityPoints.length - 1} operaciones
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="relative w-full h-[260px] flex items-center justify-center rounded-xl bg-slate-50/50 dark:bg-slate-900/20 border border-slate-100 dark:border-slate-800/50 p-2 overflow-hidden">
-                {equityPoints.length > 0 ? (
-                  <ChartContainer
-                    config={{
-                      balance: {
-                        label: "Balance",
-                        color: "var(--chart-2)",
-                      },
-                    } satisfies ChartConfig}
-                    className="w-full h-full"
-                  >
-                    <AreaChart
-                      data={equityPoints}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--color-balance)" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="var(--color-balance)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800/60" />
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={10}
-                        minTickGap={30}
-                        className="text-[10px] font-bold fill-slate-455 dark:fill-slate-500"
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={10}
-                        domain={['dataMin', 'dataMax']}
-                        tickFormatter={(value) => `$${value.toLocaleString()}`}
-                        className="text-[10px] font-bold fill-slate-400"
-                        width={60}
-                      />
-                      <ChartTooltip
-                        content={<ChartTooltipContent indicator="line" labelFormatter={(_, payload) => payload[0]?.payload?.date} />}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="balance"
-                        stroke="var(--color-balance)"
-                        fillOpacity={1}
-                        fill="url(#colorBalance)"
-                        strokeWidth={3}
-                        activeDot={{ r: 6, className: "fill-indigo-500 stroke-white dark:stroke-slate-950 stroke-2" }}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                ) : (
-                  <div className="text-slate-400 text-sm">No hay datos suficientes para el gráfico.</div>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800/40 mt-2 pt-4">
-              <span className="flex items-center gap-1.5 font-medium">
-                <TrendingUp className="size-3.5 text-emerald-500" />
-                Crecimiento neto total de <strong className={cn(pnlNeto >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                  {pnlNeto >= 0 ? '+' : ''}${pnlNeto.toLocaleString()}
-                </strong>
-              </span>
-              <span className="text-slate-455 dark:text-slate-500 text-[11px] font-semibold">
-                Balance Inicial: ${account.startingBalance.toLocaleString()}
-              </span>
-            </CardFooter>
-          </Card>
+          <AccountEquityChart account={account} equityPoints={equityPoints} pnlNeto={pnlNeto} />
 
           {/* Operativa por Activo */}
-          <Card className="shadow-xs">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                Operativa por Activo
-              </CardTitle>
-              <CardDescription>
-                Rendimiento de los pares y activos más operados en mercado.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 mt-2">
-              {assetsArray.length === 0 ? (
-                <div className="text-center py-12 text-slate-455 text-sm">
-                  Registra trades para ver estadísticas por activo.
-                </div>
-              ) : (
-                assetsArray.map((asset, idx) => {
-                  const isAssetPositive = asset.profit >= 0;
-                  const colors = ["bg-amber-500", "bg-blue-500", "bg-purple-500", "bg-emerald-500"];
-                  const assetColor = colors[idx % colors.length];
-
-                  return (
-                    <div key={asset.name} className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2.5 h-2.5 rounded-full ${assetColor}`} />
-                          <span className="font-bold text-sm text-slate-850 dark:text-slate-100">{asset.name}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">({asset.count} trades)</span>
-                        </div>
-                        <Badge variant={isAssetPositive ? "success" : "destructive"} className="text-[10px] font-extrabold select-none">
-                          {isAssetPositive ? '+' : ''}${asset.profit.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
-                        </Badge>
-                      </div>
-
-                      {/* Winrate Bar */}
-                      <div className="mt-2.5 space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-400">Win Rate</span>
-                          <span className="font-bold text-slate-700 dark:text-slate-300">{asset.winRate}%</span>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full bg-slate-150 dark:bg-slate-800 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${isAssetPositive ? 'bg-emerald-500' : 'bg-rose-500/80'} transition-all`}
-                            style={{ width: `${asset.winRate}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </CardContent>
-          </Card>
+          <AccountOperationsByAsset closedTrades={closedTrades} />
         </TabsContent>
 
         {/* TAB 2: METRICAS OPERATIVAS AVANZADAS */}
@@ -1142,219 +620,13 @@ export default function AccountDetail() {
 
         {/* TAB 3: HISTORIAL DE OPERACIONES (Tabla de TanStack) */}
         <TabsContent value="activity" className="mt-6">
-          <Card className="shadow-xs">
-            <CardHeader className="flex flex-row justify-between items-center pb-3">
-              <div>
-                <CardTitle className="text-lg">Operaciones Registradas</CardTitle>
-                <CardDescription>Visualiza, busca y analiza cada una de tus posiciones en esta cuenta.</CardDescription>
-              </div>
-              <Link to={`/trades/new?accountId=${account.id}`} className={cn(buttonVariants())}>
-                <Plus className="size-4" /> Registrar Trade
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {trades.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <Activity className="size-8 mx-auto text-slate-400 mb-3" />
-                  <p className="text-slate-500">No hay trades registrados en esta cuenta.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center justify-between pb-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* Búsqueda */}
-                      <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                        <Input
-                          placeholder="Filtrar por activo o estrategia..."
-                          value={globalFilter}
-                          onChange={(e) => setGlobalFilter(e.target.value)}
-                          className="pl-9 h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-xl"
-                        />
-                      </div>
-
-                      {/* Filtro de Activo */}
-                      <div className="w-full sm:w-44">
-                        <Select value={selectedAsset} onValueChange={handleAssetChange}>
-                          <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
-                            <SelectValue placeholder="Activo (Todos)" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
-                            <SelectItem value="all" className="text-xs font-semibold">Activo (Todos)</SelectItem>
-                            {assetFacets.map(facet => (
-                              <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
-                                {facet.value} ({facet.count})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Filtro de Dirección */}
-                      <div className="w-full sm:w-44">
-                        <Select value={selectedDirection} onValueChange={handleDirectionChange}>
-                          <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
-                            <SelectValue placeholder="Dirección (Todas)" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
-                            <SelectItem value="all" className="text-xs font-semibold">Dirección (Todas)</SelectItem>
-                            {directionFacets.map(facet => (
-                              <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
-                                {facet.value} ({facet.count})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Botón de limpiar filtros */}
-                      {hasActiveFilters && (
-                        <button
-                          onClick={clearAllFilters}
-                          className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 h-9"
-                        >
-                          Limpiar Filtros
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
-                    <Table>
-                      <TableHeader className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
-                        {table.getHeaderGroups().map((headerGroup) => (
-                          <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => (
-                              <TableHead
-                                key={header.id}
-                                className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider"
-                              >
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                  )}
-                              </TableHead>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableHeader>
-                      <TableBody>
-                        {table.getRowModel().rows.length ? (
-                          table.getRowModel().rows.map((row) => (
-                            <TableRow
-                              key={row.id}
-                              data-state={row.getIsSelected() && "selected"}
-                              className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors"
-                            >
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id} className="px-4 py-3 align-middle">
-                                  {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext()
-                                  )}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={columns.length}
-                              className="h-24 text-center text-slate-400 text-sm"
-                            >
-                              No se encontraron trades que coincidan con la búsqueda.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <div className="flex items-center justify-between px-2 py-1">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1} ({table.getFilteredRowModel().rows.length} de {trades.length} trades)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                        className="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs active:scale-95 duration-100"
-                        title="Página Anterior"
-                      >
-                        <ChevronLeft className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                        className="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs active:scale-95 duration-100"
-                        title="Siguiente Página"
-                      >
-                        <ChevronRight className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TradesList account={account} phaseTrades={trades} trades={trades} />
         </TabsContent>
 
         {/* TAB 4: RETIROS */}
         {(account.status === 'Real' || account.status === 'Funded') && (
           <TabsContent value="withdrawals" className="mt-6">
-            <Card className="shadow-xs">
-              <CardHeader className="flex flex-row justify-between items-center pb-3">
-                <div>
-                  <CardTitle className="text-lg">Historial de Retiros</CardTitle>
-                  <CardDescription>Visualiza todos los retiros (payouts) registrados para esta cuenta.</CardDescription>
-                </div>
-                <CreateWithdrawalDialog account={account} />
-              </CardHeader>
-              <CardContent>
-                {withdrawals.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                    <Landmark className="size-8 mx-auto text-slate-400 mb-3" />
-                    <p className="text-slate-500">No hay retiros registrados aún.</p>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
-                    <Table>
-                      <TableHeader className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
-                        <TableRow>
-                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Fecha</TableHead>
-                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Monto Retirado</TableHead>
-                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Monto Neto</TableHead>
-                          <TableHead className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider">Notas</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {withdrawals.map((withdrawal) => (
-                          <TableRow
-                            key={withdrawal.id}
-                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors"
-                          >
-                            <TableCell className="px-4 py-3 align-middle text-slate-500 font-medium dark:text-slate-400">
-                              {new Date(withdrawal.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </TableCell>
-                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-slate-700 dark:text-slate-200">
-                              ${withdrawal.amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-emerald-500">
-                              ${(withdrawal.netAmount || (withdrawal.amount * (account.status === 'Real' ? 100 : (account.profitSplit ?? 100)) / 100)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="px-4 py-3 align-middle text-slate-600 dark:text-slate-300">
-                              {withdrawal.notes || <span className="text-slate-400">—</span>}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              <AccountWithDrawals account={account} />
           </TabsContent>
         )}
       </Tabs>
