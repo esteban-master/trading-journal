@@ -1,30 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trade } from "@/types";
+import { Badge } from "@/components/ui/badge";;
+import { useAccountDetailStore } from "@/store/useAccountDetailStore";
 
-import { Badge } from "@/components/ui/badge";
-import Decimal from "decimal.js";
-
-export function AccountOperationsByAsset({ closedTrades }: { closedTrades: Trade[] }) {
-
-    const assetsDataMap: Record<string, { count: number, wins: number, profit: Decimal }> = {};
-    
-    closedTrades.forEach(t => {
-        const assetName = t.asset.toUpperCase();
-        if (!assetsDataMap[assetName]) {
-          assetsDataMap[assetName] = { count: 0, wins: 0, profit: new Decimal(0) };
-        }
-        assetsDataMap[assetName].count++;
-        if (t.pnl > 0) assetsDataMap[assetName].wins++;
-        assetsDataMap[assetName].profit = assetsDataMap[assetName].profit.plus(new Decimal(t.pnl || 0));
-      });
-    
-      const assetsArray = Object.entries(assetsDataMap).map(([name, data]) => ({
-        name,
-        count: data.count,
-        winRate: data.count > 0 ? Math.round((data.wins / data.count) * 100) : 0,
-        profit: data.profit.toNumber()
-      })).sort((a, b) => b.count - a.count).slice(0, 4);
-    
+export function AccountOperationsByAsset() {
+    const assetsArray = useAccountDetailStore((s)=> s.assetsArray)    
     return (
         <Card className="shadow-xs">
             <CardHeader className="pb-2">

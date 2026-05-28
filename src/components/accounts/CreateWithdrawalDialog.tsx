@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
 import { useCreateWithdrawal } from '@/hooks/useWithdrawals';
-import { Account } from '@/types';
+import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 
 // Helper to get local date-time string in YYYY-MM-DDTHH:mm format
 const getLocalDateTimeString = () => {
@@ -50,11 +50,8 @@ const createWithdrawalSchema = z.object({
 
 type CreateWithdrawalValues = z.infer<typeof createWithdrawalSchema>;
 
-interface CreateWithdrawalDialogProps {
-  account: Account;
-}
-
-export function CreateWithdrawalDialog({ account }: CreateWithdrawalDialogProps) {
+export function CreateWithdrawalDialog() {
+  const { account } = useAccountDetailStore();
   const [open, setOpen] = useState(false);
   const createWithdrawalMutation = useCreateWithdrawal();
 
@@ -66,6 +63,8 @@ export function CreateWithdrawalDialog({ account }: CreateWithdrawalDialogProps)
       notes: '',
     },
   });
+
+  if (!account) return null;
 
   const profitSplit = account.status === 'Real' ? 100 : (account.profitSplit ?? 100);
   const amountToWithdraw = form.watch('amount') || 0;

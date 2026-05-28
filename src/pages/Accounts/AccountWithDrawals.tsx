@@ -8,21 +8,15 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CreateWithdrawalDialog } from '@/components/accounts/CreateWithdrawalDialog';
-import { Account } from '@/types';
-import { useWithdrawals } from '@/hooks/useWithdrawals';
-import { Landmark, Loader2 } from 'lucide-react';
+import { Landmark } from 'lucide-react';
 import { formatDate } from '@/lib/formatDate';
+import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 
-export function AccountWithDrawals({ account }: { account: Account }) {
-    const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(account.id);
+export function AccountWithDrawals() {
+    const { withdrawals, account } = useAccountDetailStore();
     
-    if (withdrawalsLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        );
-    }
+    if (!account) return null;
+    
     return (
         <Card className="shadow-xs">
               <CardHeader className="flex flex-row justify-between items-center pb-3">
@@ -30,7 +24,7 @@ export function AccountWithDrawals({ account }: { account: Account }) {
                   <CardTitle className="text-lg">Historial de Retiros</CardTitle>
                   <CardDescription>Visualiza todos los retiros (payouts) registrados para esta cuenta.</CardDescription>
                 </div>
-                <CreateWithdrawalDialog account={account} />
+                <CreateWithdrawalDialog />
               </CardHeader>
               <CardContent>
                 {withdrawals.length === 0 ? (

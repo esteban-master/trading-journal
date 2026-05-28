@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ColumnDef, ColumnFiltersState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
-import { Account, Trade } from '../../types';
+import { Trade } from '../../types';
 import { Activity, ChevronLeft, ChevronRight, ChevronsUpDown, ExternalLink, ImageIcon, Plus, Search } from 'lucide-react';
 import { formatDate } from '@/lib/formatDate';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ import { Link } from 'react-router';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
+import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 const columns: ColumnDef<Trade>[] = [
   {
     accessorKey: 'date',
@@ -258,14 +259,16 @@ const columns: ColumnDef<Trade>[] = [
   },
 ];
 
-export function TradesList({ phaseTrades, trades, account }: { phaseTrades: Trade[], trades: Trade[], account: Account}) {
+export function TradesList() {
  
+  const { phaseTrades, totalTradesCount, account } = useAccountDetailStore();
+  
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'date', desc: true }
   ]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  // eslint-disable-next-line react-hooks/incompatible-library
+
   const table = useReactTable({
     data: phaseTrades,
     columns,
@@ -350,12 +353,12 @@ export function TradesList({ phaseTrades, trades, account }: { phaseTrades: Trad
                 <CardTitle className="text-lg">Operaciones Registradas</CardTitle>
                 <CardDescription>Visualiza, busca y analiza cada una de tus posiciones en esta cuenta.</CardDescription>
               </div>
-              <Link to={`/trades/new?accountId=${account.id}`} className={cn(buttonVariants())}>
+              <Link to={`/trades/new?accountId=${account?.id}`} className={cn(buttonVariants())}>
                 <Plus className="size-4" /> Registrar Trade
               </Link>
             </CardHeader>
             <CardContent>
-              {trades.length === 0 ? (
+              {totalTradesCount === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
                   <Activity className="size-8 mx-auto text-slate-400 mb-3" />
                   <p className="text-slate-500">No hay trades registrados en esta cuenta.</p>
@@ -476,7 +479,7 @@ export function TradesList({ phaseTrades, trades, account }: { phaseTrades: Trad
 
                   <div className="flex items-center justify-between px-2 py-1">
                     <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1} ({table.getFilteredRowModel().rows.length} de {trades.length} trades)
+                      Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1} ({table.getFilteredRowModel().rows.length} de {totalTradesCount} trades)
                     </span>
                     <div className="flex items-center gap-2">
                       <button

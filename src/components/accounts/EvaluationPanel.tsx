@@ -1,18 +1,18 @@
-import { useTrades } from "@/hooks/useTrades";
 import { Account } from "@/types";
 import { Decimal } from 'decimal.js';
 import { Card, CardContent } from "../ui/card";
 import { Loader2, ShieldAlert, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 import { useUpdateAccount } from "@/hooks/useAccounts";
 import { toast } from "sonner";
+import { useAccountDetailStore } from "@/store/useAccountDetailStore";
 
-export default function EvaluationPanel({ account, viewPhase } : { account: Account, viewPhase: number }) {
+export default function EvaluationPanel({ account } : { account: Account }) {
   
-    const { data: trades = [], isLoading: tradesLoading } = useTrades(account.id);
+    const { phaseTrades, viewPhase, setViewPhase } = useAccountDetailStore();
     const { mutateAsync: updateAccountMutation, isPending: updating } = useUpdateAccount();
     
+      
     const isEval = account.status === 'Evaluation';
-    const phaseTrades = trades.filter(t => t.phase === viewPhase);
 
     const closedTrades = phaseTrades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined);
 
@@ -69,6 +69,7 @@ export default function EvaluationPanel({ account, viewPhase } : { account: Acco
                 equity: account.startingBalance
               }
             });
+            setViewPhase(3);
             toast.success('¡Felicidades!', { description: 'Cuenta aprobada y fondeada.' });
           } else {
             await updateAccountMutation({
@@ -79,21 +80,13 @@ export default function EvaluationPanel({ account, viewPhase } : { account: Acco
                 equity: account.startingBalance
               }
             });
+            setViewPhase((account.phase || 1) + 1);
             toast.success('¡Fase superada!', { description: `Avanzaste a la fase ${(account.phase || 1) + 1}.` });
           }
         } catch {
           toast.error('Error', { description: 'No se pudo actualizar la cuenta.' });
         }
     };
-
-    if (tradesLoading) {
-      return (
-          <div className="flex items-center justify-center min-h-[200px] text-muted-foreground">
-            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-            Cargando evaluación...
-          </div>
-      )
-    }
 
     if (isEval && (targetProfitAmount || maxDrawdownAmount)) {
         return (

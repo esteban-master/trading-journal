@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useAccountDetail } from '@/hooks/useAccounts';
 import { useTrades } from '@/hooks/useTrades';
@@ -19,7 +19,6 @@ import {
   Briefcase,
   Landmark,
 } from 'lucide-react';
-import { Decimal } from 'decimal.js';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -37,20 +36,45 @@ import { AccountOperationsByAsset } from './AccountOperationsByAsset';
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const viewPhase = useAccountDetailStore(state => state.viewPhase)
+  const { 
+    currentBalance, 
+    equity, 
+    pnlNeto, 
+    setAccountData,
+    equityPoints,
+    profitFactor,
+    avgRR,
+    winRate,
+    winningTradesCount,
+    losingTradesCount,
+    totalTradesCount,
+    minVal,
+    maxVal,
+    phaseTrades,
+    totalNetWithdrawals,
+    maxLossStreak,
+    maxWinStreak,
+    avgLoss,
+    avgWin,
+    roi
+  } = useAccountDetailStore();
+
+  
+  
   const { data: account, isLoading: accountLoading, error: accountError } = useAccountDetail(id);
   const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
   const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(id);
+  
+  useEffect(() => {
+    if(account && account.phase) {
+      setAccountData(account, trades, withdrawals, account.phase);
+    }
+  }, [account?.id, trades.length, withdrawals.length])
+  
 
   const loading = accountLoading || tradesLoading || withdrawalsLoading;
 
   const error = accountError ? 'No se pudo cargar la cuenta. Verifica tu conexión.' : (account === null && !accountLoading ? 'La cuenta no existe.' : null);
-
-  const phaseTrades = useMemo(() => {
-    if (account?.status === 'Real') return trades;
-    return trades.filter(t => (t.phase || 1) === viewPhase);
-  }, [trades, viewPhase, account?.status]);
-
 
   if (loading) {
     return (
@@ -93,103 +117,6 @@ export default function AccountDetail() {
   const isFunded = account.status === 'Funded';
   const isBlown = account.status === 'Blown';
 
-  // --- Cálculos dinámicos avanzados de Trades ---
-  const closedTrades = phaseTrades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined);
-  const totalTradesCount = closedTrades.length;
-
-  const winningTrades = closedTrades.filter(t => t.pnl > 0);
-  const losingTrades = closedTrades.filter(t => t.pnl < 0);
-  const winRate = totalTradesCount > 0 ? Math.round((winningTrades.length / totalTradesCount) * 100) : 0;
-
-  // Usar Decimal para calcular el PnL Neto y Balance Actual dinámicamente
-  const pnlNetoDecimal = closedTrades.reduce((acc, t) => acc.plus(new Decimal(t.pnl || 0)), new Decimal(0));
-  const pnlNeto = pnlNetoDecimal.toNumber();
-
-  const isRealOrFundedPhase = account.status === 'Real' || viewPhase === 3;
-  const applicableWithdrawals = isRealOrFundedPhase ? withdrawals : [];
-
-  const withdrawalsTotalDecimal = applicableWithdrawals.reduce((acc, w) => acc.plus(new Decimal(w.amount || 0)), new Decimal(0));
-  
-  const totalNetWithdrawals = applicableWithdrawals.reduce((acc, w) => {
-    const split = account.status === 'Real' ? 100 : (account.profitSplit ?? 100);
-    return acc.plus(new Decimal(w.netAmount || (w.amount * split / 100) || 0));
-  }, new Decimal(0)).toNumber();
-  const costOrOne = account.cost > 0 ? account.cost : 1;
-  const roi = ((totalNetWithdrawals / costOrOne) * 100).toFixed(1);
-
-  const currentBalanceDecimal = new Decimal(account.startingBalance).plus(pnlNetoDecimal).minus(withdrawalsTotalDecimal);
-  const currentBalance = currentBalanceDecimal.toNumber();
-
-  const equity = account.equity !== undefined && account.equity !== null && account.equity !== account.currentBalance
-    ? new Decimal(account.equity).toNumber()
-    : currentBalance;
-
-  const grossProfitDecimal = winningTrades.reduce((acc, t) => acc.plus(new Decimal(t.pnl || 0)), new Decimal(0));
-
-  const grossLossDecimal = losingTrades.reduce((acc, t) => acc.plus(new Decimal(Math.abs(t.pnl || 0))), new Decimal(0));
-
-  const profitFactor = grossLossDecimal.gt(0)
-    ? grossProfitDecimal.div(grossLossDecimal).toFixed(2)
-    : grossProfitDecimal.gt(0) ? 'Max' : '0.00';
-
-  const avgWin = winningTrades.length > 0 ? grossProfitDecimal.div(winningTrades.length).toNumber() : 0;
-  const avgLoss = losingTrades.length > 0 ? grossLossDecimal.div(losingTrades.length).toNumber() : 0;
-
-  const tradesWithRR = closedTrades.filter(t => t.riskRewardRatio > 0);
-  const avgRR = tradesWithRR.length > 0
-    ? (tradesWithRR.reduce((acc, t) => acc + t.riskRewardRatio, 0) / tradesWithRR.length).toFixed(1)
-    : '0.0';
-
-  // Rachas consecutivas (cronológicas)
-  const cronTrades = [...closedTrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  let maxWinStreak = 0;
-  let maxLossStreak = 0;
-  let currentWinStreak = 0;
-  let currentLossStreak = 0;
-
-  cronTrades.forEach(t => {
-    if (t.pnl > 0) {
-      currentWinStreak++;
-      currentLossStreak = 0;
-      if (currentWinStreak > maxWinStreak) maxWinStreak = currentWinStreak;
-    } else if (t.pnl < 0) {
-      currentLossStreak++;
-      currentWinStreak = 0;
-      if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak;
-    }
-  });
-
-  // Puntos para la Curva de Equity Dinámica
-  const equityPoints = [{ date: 'Inicio', balance: account.startingBalance }];
-  let runningBalanceDecimal = new Decimal(account.startingBalance);
-
-  const cronEvents = [
-    ...closedTrades.map(t => ({ type: 'trade', date: new Date(t.date).getTime(), pnl: t.pnl || 0 })),
-    ...applicableWithdrawals.map(w => ({ type: 'withdrawal', date: new Date(w.date).getTime(), pnl: -w.amount }))
-  ].sort((a, b) => a.date - b.date);
-
-  cronEvents.forEach(evt => {
-    runningBalanceDecimal = runningBalanceDecimal.plus(new Decimal(evt.pnl));
-    const dateObj = new Date(evt.date);
-    const formattedDate = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-    equityPoints.push({
-      date: formattedDate,
-      balance: runningBalanceDecimal.toNumber()
-    });
-  });
-
-  if (equityPoints.length === 1) {
-    equityPoints.push({
-      date: 'Actual',
-      balance: currentBalance
-    });
-  }
-
-  const balances = equityPoints.map(p => p.balance);
-  const maxVal = Math.max(...balances, account.startingBalance) * 1.002;
-  const minVal = Math.min(...balances, account.startingBalance) * 0.998;
-
-
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -218,7 +145,7 @@ export default function AccountDetail() {
       </div>
 
       {/* Panel de Evaluación (Condicional) */}
-      {account.status !== 'Real' && <EvaluationPanel account={account} viewPhase={viewPhase} />}
+      {account.status !== 'Real' && <EvaluationPanel account={account} />}
 
       {/* Grid de Métricas Clave al estilo Dashboard */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -282,7 +209,7 @@ export default function AccountDetail() {
             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
               <span>Win Rate</span>
               <Badge variant={winRate >= 50 ? "success" : "warning"} className="text-[10px] px-1.5 py-0.5 font-bold">
-                {winningTrades.length} W - {losingTrades.length} L
+                {winningTradesCount} W - {losingTradesCount} L
               </Badge>
             </CardDescription>
             <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
@@ -450,7 +377,7 @@ export default function AccountDetail() {
           <AccountEquityChart account={account} equityPoints={equityPoints} pnlNeto={pnlNeto} />
 
           {/* Operativa por Activo */}
-          <AccountOperationsByAsset closedTrades={closedTrades} />
+          <AccountOperationsByAsset />
         </TabsContent>
 
         {/* TAB 2: METRICAS OPERATIVAS AVANZADAS */}
@@ -599,16 +526,18 @@ export default function AccountDetail() {
 
         {/* TAB 3: HISTORIAL DE OPERACIONES (Tabla de TanStack) */}
         <TabsContent value="activity" className="mt-6">
-          <TradesList account={account} phaseTrades={trades} trades={trades} />
+          <TradesList />
         </TabsContent>
 
         {/* TAB 4: RETIROS */}
         {(account.status === 'Real' || account.status === 'Funded') && (
           <TabsContent value="withdrawals" className="mt-6">
-              <AccountWithDrawals account={account} />
+              <AccountWithDrawals />
           </TabsContent>
         )}
       </Tabs>
+                  
     </div>
   );
 }
+

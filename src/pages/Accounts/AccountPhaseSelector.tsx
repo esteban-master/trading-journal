@@ -10,7 +10,7 @@ export function AccountPhaseSelector({ account }: { account: Account }) {
         if (account?.phase) {
           setViewPhase(account.phase)
         }
-    }, [account, setViewPhase]);
+    }, [account]);
     
     return (
         <div className="bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl">
