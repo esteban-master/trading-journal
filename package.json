@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "node scripts/start-emulators.js",
+    "emulators:save": "node scripts/save-emulators.js"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
