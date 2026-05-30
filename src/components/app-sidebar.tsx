@@ -47,8 +47,9 @@ export function AppSidebar() {
   return (
     <Sidebar variant="sidebar" collapsible="icon">
       <SidebarHeader className="border-sidebar-border flex h-16 items-center justify-center border-b p-4">
-        <div className="w-full truncate text-xl font-bold tracking-tighter text-indigo-400">
-          Trader Tracker <span className="text-foreground">Pro</span>
+        <div className="flex w-full items-center gap-2 truncate text-xl font-bold tracking-tighter text-indigo-400">
+          <img src="/logo-svg.svg" alt="Logo" className="w-6 h-6" />
+          <span>Funded<span className="text-foreground">Flow</span></span>
         </div>
       </SidebarHeader>
       <SidebarContent>

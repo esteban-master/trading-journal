@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 import AppRouter from './AppRouter.tsx';
 import './index.css';
+import { ThemeProvider } from './theme-provider.tsx';
 
 
 const queryClient = new QueryClient();
@@ -13,9 +14,11 @@ const queryClient = new QueryClient();
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <QueryClientProvider client={queryClient}>
         <ReactQueryDevtools initialIsOpen={false} />
         <AppRouter />
       </QueryClientProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );
