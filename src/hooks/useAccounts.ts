@@ -49,7 +49,6 @@ const normalizeAccount = (docId: string, data: DocumentData): Account => {
 export function useAccounts() {
   const { user } = useAuthStore();
 
-  console.log('useAccounts', user)
   return useQuery<Account[]>({
     queryKey: ['accounts', user?.uid],
     queryFn: async () => {

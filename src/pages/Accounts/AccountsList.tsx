@@ -12,7 +12,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function AccountsList() {
   const { user } = useAuthStore();
-  console.log(user)
   const { data: accounts = [], isLoading: loading } = useAccounts();
 
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
