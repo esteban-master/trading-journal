@@ -21,6 +21,10 @@ export interface Account {
   maxDrawdownPercentagePhase2?: number;
   phase?: number;
   totalPhases?: number;
+  
+  // Risk Strategy
+  baseRiskPercent?: number;
+  lossMultiplier?: number;
 }
 
 export type TradeDirection = 'Long' | 'Short';

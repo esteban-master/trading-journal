@@ -28,6 +28,7 @@ import { AccountWithDrawals } from '../../components/accounts/detail/AccountWith
 import { AccountEquityChart } from '../../components/accounts/detail/AccountEquityChart';
 import { AccountOperationsByAsset } from '../../components/accounts/detail/AccountOperationsByAsset';
 import { AccountMetrics } from '../../components/accounts/detail/AccountMetrics';
+import { RiskAdvisorCard } from '@/components/risk/RiskAdvisorCard';
 
 
 export default function AccountDetail() {
@@ -181,11 +182,16 @@ export default function AccountDetail() {
         {/* TAB 1: VISTA GENERAL (Gráfico Equity + Distribución por Activos) */}
         <TabsContent value="overview" className="grid grid-cols-1 gap-6 lg:grid-cols-3 mt-6">
 
-          {/* Gráfico de Equity Dinámico */}
-          <AccountEquityChart account={account} equityPoints={equityPoints} pnlNeto={pnlNeto} />
+          <div className="lg:col-span-2">
+            {/* Gráfico de Equity Dinámico */}
+            <AccountEquityChart account={account} equityPoints={equityPoints} pnlNeto={pnlNeto} />
+          </div>
 
-          {/* Operativa por Activo */}
-          <AccountOperationsByAsset />
+          <div className="flex flex-col gap-6">
+            <RiskAdvisorCard trades={phaseTrades} />
+            {/* Operativa por Activo */}
+            <AccountOperationsByAsset />
+          </div>
         </TabsContent>
 
         {/* TAB 2: METRICAS OPERATIVAS AVANZADAS */}

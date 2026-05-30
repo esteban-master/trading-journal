@@ -62,6 +62,8 @@ const createAccountSchema = z.object({
   phase: z.coerce.number().optional(),
   totalPhases: z.coerce.number().optional(),
   profitSplit: z.coerce.number().min(0).max(100).optional(),
+  baseRiskPercent: z.coerce.number().min(0.01, 'El riesgo debe ser mayor a 0').max(100, 'Máximo 100%').optional(),
+  lossMultiplier: z.coerce.number().min(1, 'El multiplicador debe ser al menos 1').optional(),
 })
 
 type CreateAccountValues = z.infer<typeof createAccountSchema>
@@ -94,6 +96,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       phase: 1,
       totalPhases: 2,
       profitSplit: 80,
+      baseRiskPercent: 0.55,
+      lossMultiplier: 1.20,
     },
   })
 
@@ -116,6 +120,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
         totalPhases: isEval ? values.totalPhases : undefined,
         profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
+        baseRiskPercent: values.baseRiskPercent,
+        lossMultiplier: values.lossMultiplier,
       })
 
       toast.success('Cuenta creada exitosamente', {
@@ -335,6 +341,50 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                     )}
                   />
                 )}
+              </div>
+
+              {/* Campos de Gestión de Riesgo */}
+              <div className="flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Layers className="size-4 text-slate-500" />
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="baseRiskPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Riesgo Base (%)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" step="0.01" className="pr-8" {...field} value={field.value || ''} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                          </div>
+                        </FormControl>
+                        <FormDescription>Porcentaje por defecto.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lossMultiplier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Multiplicador</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" step="0.01" className="pr-8" {...field} value={field.value || ''} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">x</span>
+                          </div>
+                        </FormControl>
+                        <FormDescription>Incremento tras pérdida.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               {/* Campos de Evaluación condicionales */}

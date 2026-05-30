@@ -39,6 +39,8 @@ const normalizeAccount = (docId: string, data: DocumentData): Account => {
     phase: data.phase,
     totalPhases: data.totalPhases,
     profitSplit: data.profitSplit,
+    baseRiskPercent: data.baseRiskPercent,
+    lossMultiplier: data.lossMultiplier,
     createdAt: data.createdAt instanceof Timestamp
       ? data.createdAt.toDate().toISOString()
       : data.createdAt ?? new Date().toISOString()
