@@ -61,19 +61,20 @@ export function useTrades(accountId?: string) {
           q = query(
             tradesRef,
             where('userId', '==', user.uid),
-            where('accountId', '==', accountId),
-            orderBy('date', 'desc')
+            where('accountId', '==', accountId)
           );
         } else {
           q = query(
-            tradesRef,
-            where('userId', '==', user.uid),
-            orderBy('date', 'desc')
+            tradesRef, 
+            where('userId', '==', user.uid)
           );
         }
 
         const snap = await getDocs(q);
-        return snap.docs.map(d => normalizeTrade(d.id, d.data()));
+        const trades = snap.docs.map(d => normalizeTrade(d.id, d.data()));
+        
+        // Ordenar localmente para evitar la necesidad de un índice compuesto en Firebase
+        return trades.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       } catch (error) {
         console.error('Error fetching trades:', error);
         return [];

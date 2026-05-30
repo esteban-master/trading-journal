@@ -57,11 +57,13 @@ export function useAccounts() {
       if (!user?.uid) return [];
       const q = query(
         collection(db, accountColectionKey),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', user.uid)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => normalizeAccount(d.id, d.data()));
+      const accounts = snap.docs.map(d => normalizeAccount(d.id, d.data()));
+      
+      // Ordenar localmente para evitar la necesidad de un índice compuesto en Firebase
+      return accounts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     },
     enabled: !!user?.uid,
     staleTime: 1000 * 60 * 5, // 5 minutes cache validity

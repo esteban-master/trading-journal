@@ -5,7 +5,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   Timestamp,
   DocumentData,
   runTransaction
@@ -14,6 +13,7 @@ import {
 import { db } from '@/config/firebase';
 import { Withdrawal } from '@/types';
 import Decimal from 'decimal.js';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const withdrawalsCollectionKey = 'withdrawals';
 const accountCollectionKey = 'accounts';
@@ -33,30 +33,40 @@ const normalizeWithdrawal = (docId: string, data: DocumentData): Withdrawal => {
 };
 
 export function useWithdrawals(accountId?: string) {
+  const { user } = useAuthStore();
+
   return useQuery<Withdrawal[]>({
-    queryKey: accountId ? ['withdrawals', 'account', accountId] : ['withdrawals'],
+    queryKey: accountId ? ['withdrawals', 'account', accountId, user?.uid] : ['withdrawals', user?.uid],
     queryFn: async () => {
       try {
+        if (!user?.uid) return [];
         const withdrawalsRef = collection(db, withdrawalsCollectionKey);
         let q;
 
         if (accountId) {
           q = query(
             withdrawalsRef,
-            where('accountId', '==', accountId),
-            orderBy('date', 'desc')
+            where('userId', '==', user.uid),
+            where('accountId', '==', accountId)
           );
         } else {
-          q = query(withdrawalsRef, orderBy('date', 'desc'));
+          q = query(
+            withdrawalsRef,
+            where('userId', '==', user.uid)
+          );
         }
 
         const snap = await getDocs(q);
-        return snap.docs.map(d => normalizeWithdrawal(d.id, d.data()));
+        const withdrawals = snap.docs.map(d => normalizeWithdrawal(d.id, d.data()));
+        
+        // Ordenar localmente para evitar la necesidad de un índice compuesto en Firebase
+        return withdrawals.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       } catch (error) {
         console.error('Error fetching withdrawals:', error);
         return [];
       }
     },
+    enabled: !!user?.uid,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -106,6 +116,7 @@ export function useCreateWithdrawal() {
         // Crear el documento de retiro
         const newWithdrawalRef = doc(collection(db, withdrawalsCollectionKey));
         transaction.set(newWithdrawalRef, {
+          userId: newWithdrawal.userId,
           accountId: newWithdrawal.accountId,
           amount: newWithdrawal.amount,
           netAmount: netAmount,
