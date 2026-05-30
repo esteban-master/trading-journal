@@ -9,12 +9,14 @@ import {
   deleteDoc,
   query,
   orderBy,
+  where,
   Timestamp,
   DocumentData
 } from 'firebase/firestore';
 
 import { db } from '@/config/firebase';
 import { Account } from '@/types';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const accountColectionKey = 'accounts';
 
@@ -22,6 +24,7 @@ const accountColectionKey = 'accounts';
 const normalizeAccount = (docId: string, data: DocumentData): Account => {
   return {
     id: docId,
+    userId: data.userId,
     name: data.name,
     firm: data.firm,
     status: data.status,
@@ -45,13 +48,21 @@ const normalizeAccount = (docId: string, data: DocumentData): Account => {
 
 // 1. Hook to fetch all accounts
 export function useAccounts() {
+  const { user } = useAuthStore();
+
   return useQuery<Account[]>({
-    queryKey: ['accounts'],
+    queryKey: ['accounts', user?.uid],
     queryFn: async () => {
-      const q = query(collection(db, accountColectionKey), orderBy('createdAt', 'desc'));
+      if (!user?.uid) return [];
+      const q = query(
+        collection(db, accountColectionKey), 
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
       const snap = await getDocs(q);
       return snap.docs.map(d => normalizeAccount(d.id, d.data()));
     },
+    enabled: !!user?.uid,
     staleTime: 1000 * 60 * 5, // 5 minutes cache validity
   });
 }
@@ -75,11 +86,14 @@ export function useAccountDetail(id: string | undefined) {
 // 3. Hook to create a new account
 export function useCreateAccount() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (newAccount: Omit<Account, 'id' | 'createdAt'>) => {
+    mutationFn: async (newAccount: Omit<Account, 'id' | 'createdAt' | 'userId'>) => {
+      if (!user?.uid) throw new Error("Unauthenticated");
       const docRef = await addDoc(collection(db, accountColectionKey), {
         ...newAccount,
+        userId: user.uid,
         createdAt: Timestamp.now()
       });
       return docRef.id;

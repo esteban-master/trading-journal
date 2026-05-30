@@ -17,6 +17,7 @@ import { Decimal } from 'decimal.js';
 
 import { db } from '@/config/firebase';
 import { Trade } from '@/types';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const tradeCollectionKey = 'trades';
 const accountCollectionKey = 'accounts';
@@ -25,6 +26,7 @@ const accountCollectionKey = 'accounts';
 const normalizeTrade = (docId: string, data: DocumentData): Trade => {
   return {
     id: docId,
+    userId: data.userId,
     accountId: data.accountId,
     asset: data.asset,
     direction: data.direction,
@@ -44,21 +46,29 @@ const normalizeTrade = (docId: string, data: DocumentData): Trade => {
 
 // 1. Hook to fetch trades (optionally filtered by accountId)
 export function useTrades(accountId?: string) {
+  const { user } = useAuthStore();
+
   return useQuery<Trade[]>({
-    queryKey: accountId ? ['trades', 'account', accountId] : ['trades'],
+    queryKey: accountId ? ['trades', 'account', accountId, user?.uid] : ['trades', user?.uid],
     queryFn: async () => {
       try {
+        if (!user?.uid) return [];
         const tradesRef = collection(db, tradeCollectionKey);
         let q;
 
         if (accountId) {
           q = query(
             tradesRef,
+            where('userId', '==', user.uid),
             where('accountId', '==', accountId),
             orderBy('date', 'desc')
           );
         } else {
-          q = query(tradesRef, orderBy('date', 'desc'));
+          q = query(
+            tradesRef, 
+            where('userId', '==', user.uid),
+            orderBy('date', 'desc')
+          );
         }
 
         const snap = await getDocs(q);
@@ -68,6 +78,7 @@ export function useTrades(accountId?: string) {
         return [];
       }
     },
+    enabled: !!user?.uid,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -75,9 +86,11 @@ export function useTrades(accountId?: string) {
 // 2. Hook to create a new trade (includes updating account balance)
 export function useCreateTrade() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (newTrade: Omit<Trade, 'id'>) => {
+    mutationFn: async (newTrade: Omit<Trade, 'id' | 'userId'>) => {
+      if (!user?.uid) throw new Error("Unauthenticated");
       // 1. Get the account to find status and current phase/balances
       const accountRef = doc(db, accountCollectionKey, newTrade.accountId);
       const accSnap = await getDoc(accountRef);
@@ -90,6 +103,7 @@ export function useCreateTrade() {
 
       // 2. Add the trade document
       const tradeDocRef = await addDoc(collection(db, tradeCollectionKey), {
+        userId: user.uid,
         accountId: newTrade.accountId,
         asset: newTrade.asset,
         direction: newTrade.direction,

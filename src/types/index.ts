@@ -2,6 +2,7 @@ export type AccountStatus = 'Evaluation' | 'Funded' | 'Blown' | 'Payout' | 'Real
 
 export interface Account {
   id: string;
+  userId: string;
   name: string; // e.g., "Topstep 50k #1"
   firm: string; // e.g., "Topstep", "FTMO"
   status: AccountStatus;
@@ -27,6 +28,7 @@ export type TradeStatus = 'Open' | 'Closed';
 
 export interface Trade {
   id: string;
+  userId: string;
   accountId: string;
   asset: string; // e.g., "NQ", "ES", "EURUSD"
   direction: TradeDirection;
@@ -43,6 +45,7 @@ export interface Trade {
 
 export interface Withdrawal {
   id: string;
+  userId: string;
   accountId: string;
   amount: number;
   netAmount?: number; // the amount actually received after profit split
