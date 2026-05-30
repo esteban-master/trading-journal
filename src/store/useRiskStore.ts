@@ -31,7 +31,7 @@ export const useRiskStore = create<RiskState>()(
         const sortedTrades = [...trades].sort(
           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
         );
-        return calculateNextRisk(sortedTrades, settings);
+        return calculateNextRisk(sortedTrades, settings).riskPercent;
       },
       getCurrentStreak: (trades) => {
         const sortedTrades = [...trades].sort(

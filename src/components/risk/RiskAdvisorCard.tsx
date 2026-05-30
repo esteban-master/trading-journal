@@ -11,7 +11,7 @@ interface RiskAdvisorCardProps {
 
 export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   const { settings: globalSettings } = useRiskStore();
-  const { account } = useAccountDetailStore();
+  const { account, avgRR } = useAccountDetailStore();
   
   const activeSettings = useMemo(() => {
     return {
@@ -28,12 +28,25 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
     globalSettings
   ]);
 
-  const recommendedNextRisk = useMemo(() => {
+  const recommendedNextRiskResult = useMemo(() => {
     const sortedTrades = [...trades].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-    return calculateNextRisk(sortedTrades, activeSettings, account?.currentBalance, account?.startingBalance);
-  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance]);
+    return calculateNextRisk(
+      sortedTrades, 
+      activeSettings, 
+      account?.currentBalance, 
+      account?.startingBalance,
+      {
+        isEvaluation: account?.status === 'Evaluation',
+        targetProfitPercentage: account?.targetProfitPercentage,
+        averageRR: parseFloat(avgRR) || 0,
+      }
+    );
+  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance, account?.status, account?.targetProfitPercentage, avgRR]);
+  
+  const recommendedNextRisk = recommendedNextRiskResult.riskPercent;
+  const isCappedByTarget = recommendedNextRiskResult.isCappedByTarget;
   
   const currentStreak = useMemo(() => {
     const sortedTrades = [...trades].sort(
@@ -52,7 +65,12 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   let phaseDotColor = 'bg-emerald-500 shadow-emerald-500/50';
   let glowColor = 'bg-emerald-500';
   
-  if (isIncreasedRisk) {
+  if (isCappedByTarget) {
+    riskPhaseLabel = 'Fase 4: Cierre de Prueba';
+    phaseColorClass = 'text-purple-700 dark:text-purple-400';
+    phaseDotColor = 'bg-purple-500 shadow-purple-500/50';
+    glowColor = 'bg-purple-500';
+  } else if (isIncreasedRisk) {
     riskPhaseLabel = 'Riesgo Aumentado (Recuperación)';
     phaseColorClass = 'text-orange-700 dark:text-orange-400';
     phaseDotColor = 'bg-orange-500 shadow-orange-500/50';
