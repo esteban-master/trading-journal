@@ -20,9 +20,6 @@ export default function DashboardLayout() {
           <header className="border-border bg-background/50 sticky top-0 z-10 flex h-20 items-center justify-between border-b px-6 backdrop-blur-md py-4">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-              <div className="text-foreground text-lg font-bold md:hidden">
-                Diario del Trader
-              </div>
             </div>
 
             <div className="flex-1"></div>
