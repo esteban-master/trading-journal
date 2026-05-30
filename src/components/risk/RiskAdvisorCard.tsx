@@ -4,6 +4,7 @@ import { useRiskStore } from '@/store/useRiskStore';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { calculateNextRisk, calculateConsecutiveLosses } from '@/lib/risk';
 import { Trade } from '@/types';
+import { RiskExplanationModal } from './RiskExplanationModal';
 
 interface RiskAdvisorCardProps {
   trades: Trade[];
@@ -96,7 +97,10 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
 
       <div className="flex items-start justify-between mb-6 relative z-10">
         <div>
-          <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Asesor de Riesgo</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Asesor de Riesgo</h3>
+            <RiskExplanationModal />
+          </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Calculado sobre tu racha actual</p>
         </div>
         <div className={`p-3 rounded-xl shadow-inner ${isIncreasedRisk ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'}`}>
