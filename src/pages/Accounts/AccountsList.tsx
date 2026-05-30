@@ -8,10 +8,8 @@ import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
 import { useAccounts } from '@/hooks/useAccounts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Account } from '@/types';
-import { useAuthStore } from '@/store/useAuthStore';
 
 export default function AccountsList() {
-  const { user } = useAuthStore();
   const { data: accounts = [], isLoading: loading } = useAccounts();
 
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
