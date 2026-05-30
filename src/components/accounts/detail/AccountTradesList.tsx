@@ -138,6 +138,20 @@ const columns: ColumnDef<Trade>[] = [
     },
   },
   {
+    accessorKey: 'riskPercent',
+    header: 'Riesgo (%)',
+    cell: ({ row }) => {
+      const rp: number = row.getValue('riskPercent');
+      return rp ? (
+        <span className="text-slate-650 dark:text-slate-350 font-medium">
+          {rp}%
+        </span>
+      ) : (
+        <span className="text-slate-400">—</span>
+      );
+    },
+  },
+  {
     accessorKey: 'pnl',
     header: ({ column }) => {
       return (

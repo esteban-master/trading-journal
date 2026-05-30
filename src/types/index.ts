@@ -43,6 +43,7 @@ export interface Trade {
   pnl: number;
   strategy: string;
   riskRewardRatio: number;
+  riskPercent?: number; // Risk recommended/taken on this trade
   images: string[]; // Array of image URLs
   date: string; // ISO date string
   status: TradeStatus;

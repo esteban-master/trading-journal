@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import { UploadCloud, X, Loader2 } from 'lucide-react';
+import { UploadCloud, X, Loader2, Info } from 'lucide-react';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,6 +27,12 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // Helper to get local date-time string in YYYY-MM-DDTHH:mm format
 const getLocalDateTimeString = () => {
@@ -49,6 +55,7 @@ const tradeSchema = z.object({
   pnl: z.coerce.number({ error: 'Número inválido' }),
   strategy: z.string().min(1, 'Introduce la estrategia'),
   riskReward: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
+  riskPercent: z.coerce.number({ error: 'Número inválido' }).optional(),
   date: z.string().min(1, 'Selecciona la fecha y hora de la operación'),
 });
 
@@ -106,6 +113,7 @@ export default function TradeForm() {
         pnl: values.pnl,
         strategy: values.strategy,
         riskRewardRatio: values.riskReward,
+        riskPercent: values.riskPercent,
         images: [], // File upload can be integrated later if needed
         status: 'Closed',
         date: new Date(values.date).toISOString(),
@@ -247,8 +255,8 @@ export default function TradeForm() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Estrategia y R:R */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Estrategia, R:R y Riesgo Tomado */}
                 <FormField
                   control={form.control}
                   name="strategy"
@@ -267,9 +275,46 @@ export default function TradeForm() {
                   name="riskReward"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Riesgo / Beneficio</FormLabel>
+                      <FormLabel className="flex items-center gap-2">
+                        Riesgo / Beneficio
+                        <TooltipProvider>
+                          <Tooltip delayDuration={300}>
+                            <TooltipTrigger asChild>
+                              <Info className="size-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[280px] p-3 shadow-lg border-primary/20">
+                              <p className="text-sm">Escribe el multiplicador real final (R:R Realizado). Si ganaste 3 veces tu riesgo, pon <strong className="">3</strong>. Si perdiste tu SL completo, pon <strong className="text-rose-500">0</strong>.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.1" placeholder="ej. 2.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="riskPercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        Riesgo Tomado (%)
+                        <TooltipProvider>
+                          <Tooltip delayDuration={300}>
+                            <TooltipTrigger asChild>
+                              <Info className="size-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[280px] p-3 shadow-lg border-primary/20">
+                              <p className="text-sm">Escribe el <strong>riesgo inicial</strong> con el que entraste al mercado, incluso si moviste a Break Even después. Sirve para medir qué tan agresiva fue tu decisión al inicio.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="ej. 0.55" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
