@@ -494,7 +494,7 @@ export default function Dashboard() {
       {/* Tabs Principales de Visualización */}
       <Tabs defaultValue="overview" className="w-full">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
-          <TabsList className="p-0 bg-transparent gap-2 h-auto">
+          <TabsList className="p-0 bg-transparent gap-2 h-auto flex-nowrap overflow-x-auto no-scrollbar justify-start max-w-full">
             <TabsTrigger
               value="overview"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"

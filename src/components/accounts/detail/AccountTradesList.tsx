@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ColumnDef, ColumnFiltersState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
-import { Trade } from '../../types';
+import { Trade } from '../../../types';
 import { Activity, ChevronLeft, ChevronRight, ChevronsUpDown, ExternalLink, ImageIcon, Plus, Search } from 'lucide-react';
 import { formatDate } from '@/lib/formatDate';
 import { Badge } from '@/components/ui/badge';
@@ -260,9 +260,9 @@ const columns: ColumnDef<Trade>[] = [
 ];
 
 export function TradesList() {
- 
+
   const { phaseTrades, totalTradesCount, account } = useAccountDetailStore();
-  
+
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'date', desc: true }
   ]);
@@ -348,161 +348,161 @@ export function TradesList() {
   const hasActiveFilters = columnFilters.length > 0 || globalFilter !== '';
   return (
     <Card className="shadow-xs">
-            <CardHeader className="flex flex-row justify-between items-center pb-3">
-              <div>
-                <CardTitle className="text-lg">Operaciones Registradas</CardTitle>
-                <CardDescription>Visualiza, busca y analiza cada una de tus posiciones en esta cuenta.</CardDescription>
+      <CardHeader className="flex flex-row justify-between items-center pb-3">
+        <div>
+          <CardTitle className="text-lg">Operaciones Registradas</CardTitle>
+          <CardDescription>Visualiza, busca y analiza cada una de tus posiciones en esta cuenta.</CardDescription>
+        </div>
+        <Link to={`/trades/new?accountId=${account?.id}`} className={cn(buttonVariants())}>
+          <Plus className="size-4" /> Registrar Trade
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {totalTradesCount === 0 ? (
+          <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+            <Activity className="size-8 mx-auto text-slate-400 mb-3" />
+            <p className="text-slate-500">No hay trades registrados en esta cuenta.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center justify-between pb-1">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Búsqueda */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                  <Input
+                    placeholder="Filtrar por activo o estrategia..."
+                    value={globalFilter}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    className="pl-9 h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-xl"
+                  />
+                </div>
+
+                {/* Filtro de Activo */}
+                <div className="w-full sm:w-44">
+                  <Select value={selectedAsset} onValueChange={handleAssetChange}>
+                    <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
+                      <SelectValue placeholder="Activo (Todos)" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
+                      <SelectItem value="all" className="text-xs font-semibold">Activo (Todos)</SelectItem>
+                      {assetFacets.map(facet => (
+                        <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
+                          {facet.value} ({facet.count})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de Dirección */}
+                <div className="w-full sm:w-44">
+                  <Select value={selectedDirection} onValueChange={handleDirectionChange}>
+                    <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
+                      <SelectValue placeholder="Dirección (Todas)" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
+                      <SelectItem value="all" className="text-xs font-semibold">Dirección (Todas)</SelectItem>
+                      {directionFacets.map(facet => (
+                        <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
+                          {facet.value} ({facet.count})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Botón de limpiar filtros */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 h-9"
+                  >
+                    Limpiar Filtros
+                  </button>
+                )}
               </div>
-              <Link to={`/trades/new?accountId=${account?.id}`} className={cn(buttonVariants())}>
-                <Plus className="size-4" /> Registrar Trade
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {totalTradesCount === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <Activity className="size-8 mx-auto text-slate-400 mb-3" />
-                  <p className="text-slate-500">No hay trades registrados en esta cuenta.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center justify-between pb-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* Búsqueda */}
-                      <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                        <Input
-                          placeholder="Filtrar por activo o estrategia..."
-                          value={globalFilter}
-                          onChange={(e) => setGlobalFilter(e.target.value)}
-                          className="pl-9 h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-xl"
-                        />
-                      </div>
+            </div>
 
-                      {/* Filtro de Activo */}
-                      <div className="w-full sm:w-44">
-                        <Select value={selectedAsset} onValueChange={handleAssetChange}>
-                          <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
-                            <SelectValue placeholder="Activo (Todos)" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
-                            <SelectItem value="all" className="text-xs font-semibold">Activo (Todos)</SelectItem>
-                            {assetFacets.map(facet => (
-                              <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
-                                {facet.value} ({facet.count})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Filtro de Dirección */}
-                      <div className="w-full sm:w-44">
-                        <Select value={selectedDirection} onValueChange={handleDirectionChange}>
-                          <SelectTrigger className="h-9 w-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold">
-                            <SelectValue placeholder="Dirección (Todas)" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-slate-200 dark:border-slate-800">
-                            <SelectItem value="all" className="text-xs font-semibold">Dirección (Todas)</SelectItem>
-                            {directionFacets.map(facet => (
-                              <SelectItem key={facet.value} value={facet.value} className="text-xs font-semibold">
-                                {facet.value} ({facet.count})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Botón de limpiar filtros */}
-                      {hasActiveFilters && (
-                        <button
-                          onClick={clearAllFilters}
-                          className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 h-9"
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
+              <Table>
+                <TableHeader className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider"
                         >
-                          Limpiar Filtros
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-xs">
-                    <Table>
-                      <TableHeader className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
-                        {table.getHeaderGroups().map((headerGroup) => (
-                          <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => (
-                              <TableHead
-                                key={header.id}
-                                className="text-slate-500 dark:text-slate-400 px-4 py-3 font-bold text-xs uppercase tracking-wider"
-                              >
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                  )}
-                              </TableHead>
-                            ))}
-                          </TableRow>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && "selected"}
+                        className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors"
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className="px-4 py-3 align-middle">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
                         ))}
-                      </TableHeader>
-                      <TableBody>
-                        {table.getRowModel().rows.length ? (
-                          table.getRowModel().rows.map((row) => (
-                            <TableRow
-                              key={row.id}
-                              data-state={row.getIsSelected() && "selected"}
-                              className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors"
-                            >
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id} className="px-4 py-3 align-middle">
-                                  {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext()
-                                  )}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={columns.length}
-                              className="h-24 text-center text-slate-400 text-sm"
-                            >
-                              No se encontraron trades que coincidan con la búsqueda.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center text-slate-400 text-sm"
+                      >
+                        No se encontraron trades que coincidan con la búsqueda.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
-                  <div className="flex items-center justify-between px-2 py-1">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1} ({table.getFilteredRowModel().rows.length} de {totalTradesCount} trades)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                        className="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs active:scale-95 duration-100"
-                        title="Página Anterior"
-                      >
-                        <ChevronLeft className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                        className="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs active:scale-95 duration-100"
-                        title="Siguiente Página"
-                      >
-                        <ChevronRight className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <div className="flex items-center justify-between px-2 py-1">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1} ({table.getFilteredRowModel().rows.length} de {totalTradesCount} trades)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs active:scale-95 duration-100"
+                  title="Página Anterior"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs active:scale-95 duration-100"
+                  title="Siguiente Página"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

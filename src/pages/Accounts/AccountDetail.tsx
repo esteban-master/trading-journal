@@ -21,20 +21,20 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import EvaluationPanel from '@/components/accounts/EvaluationPanel';
-import { TradesList } from './TradesList';
-import { AccountPhaseSelector } from './AccountPhaseSelector';
+import { TradesList } from '../../components/accounts/detail/AccountTradesList';
+import { AccountPhaseSelector } from '../../components/accounts/detail/AccountPhaseSelector';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
-import { AccountWithDrawals } from './AccountWithDrawals';
-import { AccountEquityChart } from './AccountEquityChart';
-import { AccountOperationsByAsset } from './AccountOperationsByAsset';
-import { AccountMetrics } from './AccountMetrics';
+import { AccountWithDrawals } from '../../components/accounts/detail/AccountWithDrawals';
+import { AccountEquityChart } from '../../components/accounts/detail/AccountEquityChart';
+import { AccountOperationsByAsset } from '../../components/accounts/detail/AccountOperationsByAsset';
+import { AccountMetrics } from '../../components/accounts/detail/AccountMetrics';
 
 
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { 
-    pnlNeto, 
+  const {
+    pnlNeto,
     setAccountData,
     equityPoints,
     winRate,
@@ -50,13 +50,13 @@ export default function AccountDetail() {
   const { data: account, isLoading: accountLoading, error: accountError } = useAccountDetail(id);
   const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
   const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(id);
-  
+
   useEffect(() => {
-    if(account && account.phase) {
+    if (account && account.phase) {
       setAccountData(account, trades, withdrawals, account.phase);
     }
   }, [account?.id, trades.length, withdrawals.length])
-  
+
 
   const loading = accountLoading || tradesLoading || withdrawalsLoading;
 
@@ -340,11 +340,11 @@ export default function AccountDetail() {
         {/* TAB 4: RETIROS */}
         {(account.status === 'Real' || account.status === 'Funded') && (
           <TabsContent value="withdrawals" className="mt-6">
-              <AccountWithDrawals />
+            <AccountWithDrawals />
           </TabsContent>
         )}
       </Tabs>
-                  
+
     </div>
   );
 }
