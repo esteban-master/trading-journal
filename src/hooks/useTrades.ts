@@ -9,7 +9,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   Timestamp,
   DocumentData
 } from 'firebase/firestore';
@@ -65,14 +64,14 @@ export function useTrades(accountId?: string) {
           );
         } else {
           q = query(
-            tradesRef, 
+            tradesRef,
             where('userId', '==', user.uid)
           );
         }
 
         const snap = await getDocs(q);
         const trades = snap.docs.map(d => normalizeTrade(d.id, d.data()));
-        
+
         // Ordenar localmente para evitar la necesidad de un índice compuesto en Firebase
         return trades.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       } catch (error) {

@@ -8,7 +8,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  orderBy,
   where,
   Timestamp,
   DocumentData
@@ -61,7 +60,7 @@ export function useAccounts() {
       );
       const snap = await getDocs(q);
       const accounts = snap.docs.map(d => normalizeAccount(d.id, d.data()));
-      
+
       // Ordenar localmente para evitar la necesidad de un índice compuesto en Firebase
       return accounts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     },
