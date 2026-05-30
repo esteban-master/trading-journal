@@ -20,6 +20,7 @@ const accountCollectionKey = 'accounts';
 
 const normalizeWithdrawal = (docId: string, data: DocumentData): Withdrawal => {
   return {
+    userId: data.userId,
     id: docId,
     accountId: data.accountId,
     amount: data.amount,
@@ -71,13 +72,13 @@ export function useCreateWithdrawal() {
       await runTransaction(db, async (transaction) => {
         const accountRef = doc(db, accountCollectionKey, newWithdrawal.accountId);
         const accountDoc = await transaction.get(accountRef);
-        
+
         if (!accountDoc.exists()) {
           throw new Error("La cuenta no existe!");
         }
 
         const data = accountDoc.data();
-        
+
         // Calcular nuevos balances usando Decimal
         const currentBalance = new Decimal(data.currentBalance || 0);
         const startingBalance = new Decimal(data.startingBalance || 0);
@@ -86,7 +87,7 @@ export function useCreateWithdrawal() {
         const withdrawalAmount = new Decimal(newWithdrawal.amount);
 
         if (currentBalance.lessThan(withdrawalAmount)) {
-           throw new Error("El monto de retiro supera el balance actual.");
+          throw new Error("El monto de retiro supera el balance actual.");
         }
 
         if (data.status === 'Funded' || data.status === 'Real') {
@@ -95,7 +96,7 @@ export function useCreateWithdrawal() {
             throw new Error(`Debes tener al menos $100 de ganancia para retirar. Ganancia actual: $${profit.toNumber()}`);
           }
           if (withdrawalAmount.greaterThan(profit)) {
-             throw new Error(`No puedes retirar más de tu ganancia actual ($${profit.toNumber()}).`);
+            throw new Error(`No puedes retirar más de tu ganancia actual ($${profit.toNumber()}).`);
           }
         }
 

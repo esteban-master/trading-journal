@@ -81,6 +81,7 @@ export function CreateWithdrawalDialog() {
 
     try {
       await createWithdrawalMutation.mutateAsync({
+        userId: account.userId,
         accountId: account.id,
         amount: values.amount,
         date: new Date(values.date).toISOString(),
@@ -90,7 +91,7 @@ export function CreateWithdrawalDialog() {
       toast.success('Retiro registrado exitosamente');
       setOpen(false);
       form.reset();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error('Error saving withdrawal:', err);
       toast.error(err?.message || 'Error al guardar el retiro');
@@ -115,7 +116,7 @@ export function CreateWithdrawalDialog() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            
+
             {!hasEnoughProfit && (
               <div className="bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 p-3 rounded-lg text-sm border border-rose-200 dark:border-rose-900/50">
                 <p className="font-bold">Ganancia Insuficiente</p>
@@ -192,8 +193,8 @@ export function CreateWithdrawalDialog() {
             />
 
             <div className="pt-4 flex justify-end">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={createWithdrawalMutation.isPending || !hasEnoughProfit}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white w-full"
               >
