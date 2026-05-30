@@ -8,13 +8,16 @@ import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
 import { useAccounts } from '@/hooks/useAccounts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Account } from '@/types';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function AccountsList() {
+  const { user } = useAuthStore();
+  console.log(user)
   const { data: accounts = [], isLoading: loading } = useAccounts();
 
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
   const totalWithdrawals = accounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
-  
+
   const totalNetWithdrawals = accounts.reduce((acc, curr) => {
     const split = curr.status === 'Real' ? 100 : (curr.profitSplit ?? 100);
     const net = curr.totalWithdrawals * split / 100;
@@ -31,7 +34,7 @@ export default function AccountsList() {
   const renderAccountCard = (account: Account) => {
     const isFunded = account.status === 'Funded';
     const isBlown = account.status === 'Blown';
-    
+
     return (
       <Card key={account.id} className="flex flex-col hover:border-indigo-500/50 transition-colors shadow-sm duration-200">
         <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -44,7 +47,7 @@ export default function AccountsList() {
                 {account.firm} • ${account.startingBalance.toLocaleString()}
               </CardDescription>
             </div>
-            <Badge 
+            <Badge
               variant={isFunded ? 'success' : isBlown ? 'destructive' : account.status === 'Real' ? 'default' : 'info'}
               className="shrink-0"
             >
