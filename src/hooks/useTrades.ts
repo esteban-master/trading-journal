@@ -51,6 +51,7 @@ export function useTrades(accountId?: string) {
   return useQuery<Trade[]>({
     queryKey: accountId ? ['trades', 'account', accountId, user?.uid] : ['trades', user?.uid],
     queryFn: async () => {
+      console.log('useTrades', user)
       try {
         if (!user?.uid) return [];
         const tradesRef = collection(db, tradeCollectionKey);
@@ -65,7 +66,7 @@ export function useTrades(accountId?: string) {
           );
         } else {
           q = query(
-            tradesRef, 
+            tradesRef,
             where('userId', '==', user.uid),
             orderBy('date', 'desc')
           );

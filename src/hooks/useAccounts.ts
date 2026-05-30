@@ -50,12 +50,13 @@ const normalizeAccount = (docId: string, data: DocumentData): Account => {
 export function useAccounts() {
   const { user } = useAuthStore();
 
+  console.log('useAccounts', user)
   return useQuery<Account[]>({
     queryKey: ['accounts', user?.uid],
     queryFn: async () => {
       if (!user?.uid) return [];
       const q = query(
-        collection(db, accountColectionKey), 
+        collection(db, accountColectionKey),
         where('userId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
