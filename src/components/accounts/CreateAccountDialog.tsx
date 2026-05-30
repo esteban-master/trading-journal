@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 
 
@@ -64,6 +65,8 @@ const createAccountSchema = z.object({
   profitSplit: z.coerce.number().min(0).max(100).optional(),
   baseRiskPercent: z.coerce.number().min(0.01, 'El riesgo debe ser mayor a 0').max(100, 'Máximo 100%').optional(),
   lossMultiplier: z.coerce.number().min(1, 'El multiplicador debe ser al menos 1').optional(),
+  enableEquityScaling: z.boolean().default(true),
+  maxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
 })
 
 type CreateAccountValues = z.infer<typeof createAccountSchema>
@@ -98,6 +101,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       profitSplit: 80,
       baseRiskPercent: 0.55,
       lossMultiplier: 1.20,
+      enableEquityScaling: true,
+      maxRiskPercent: 2.80,
     },
   })
 
@@ -122,6 +127,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
         baseRiskPercent: values.baseRiskPercent,
         lossMultiplier: values.lossMultiplier,
+        enableEquityScaling: values.enableEquityScaling,
+        maxRiskPercent: values.maxRiskPercent,
       })
 
       toast.success('Cuenta creada exitosamente', {
@@ -380,6 +387,45 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                           </div>
                         </FormControl>
                         <FormDescription>Incremento tras pérdida.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <FormField
+                    control={form.control}
+                    name="enableEquityScaling"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 p-3 shadow-sm bg-white dark:bg-slate-900/50">
+                        <div className="space-y-0.5">
+                          <FormLabel>Escalamiento (Buffer)</FormLabel>
+                          <FormDescription>
+                            Sube riesgo al estar en profit.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="maxRiskPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Riesgo Máximo (%)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" step="0.1" className="pr-8" {...field} value={field.value || ''} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                          </div>
+                        </FormControl>
+                        <FormDescription>Límite superior.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

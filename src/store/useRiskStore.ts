@@ -13,6 +13,8 @@ interface RiskState {
 const defaultSettings: RiskProgressionSettings = {
   baseRiskPercent: 0.55,
   lossMultiplier: 1.20,
+  enableEquityScaling: true,
+  maxRiskPercent: 2.80,
 };
 
 export const useRiskStore = create<RiskState>()(

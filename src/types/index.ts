@@ -25,6 +25,8 @@ export interface Account {
   // Risk Strategy
   baseRiskPercent?: number;
   lossMultiplier?: number;
+  enableEquityScaling?: boolean;
+  maxRiskPercent?: number;
 }
 
 export type TradeDirection = 'Long' | 'Short';

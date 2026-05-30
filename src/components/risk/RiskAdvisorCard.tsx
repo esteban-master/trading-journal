@@ -17,15 +17,23 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
     return {
       baseRiskPercent: account?.baseRiskPercent ?? globalSettings.baseRiskPercent,
       lossMultiplier: account?.lossMultiplier ?? globalSettings.lossMultiplier,
+      enableEquityScaling: account?.enableEquityScaling ?? globalSettings.enableEquityScaling,
+      maxRiskPercent: account?.maxRiskPercent ?? globalSettings.maxRiskPercent,
     };
-  }, [account?.baseRiskPercent, account?.lossMultiplier, globalSettings]);
+  }, [
+    account?.baseRiskPercent, 
+    account?.lossMultiplier, 
+    account?.enableEquityScaling, 
+    account?.maxRiskPercent, 
+    globalSettings
+  ]);
 
   const recommendedNextRisk = useMemo(() => {
     const sortedTrades = [...trades].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-    return calculateNextRisk(sortedTrades, activeSettings);
-  }, [trades, activeSettings]);
+    return calculateNextRisk(sortedTrades, activeSettings, account?.currentBalance, account?.startingBalance);
+  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance]);
   
   const currentStreak = useMemo(() => {
     const sortedTrades = [...trades].sort(
@@ -35,11 +43,38 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   }, [trades]);
   
   const isIncreasedRisk = currentStreak > 0;
+  
+  const pnlPercent = account && account.startingBalance ? ((account.currentBalance - account.startingBalance) / account.startingBalance) * 100 : 0;
+  
+  // Phase logic
+  let riskPhaseLabel = 'Fase 1: Supervivencia';
+  let phaseColorClass = 'text-emerald-700 dark:text-emerald-400';
+  let phaseDotColor = 'bg-emerald-500 shadow-emerald-500/50';
+  let glowColor = 'bg-emerald-500';
+  
+  if (isIncreasedRisk) {
+    riskPhaseLabel = 'Riesgo Aumentado (Recuperación)';
+    phaseColorClass = 'text-orange-700 dark:text-orange-400';
+    phaseDotColor = 'bg-orange-500 shadow-orange-500/50';
+    glowColor = 'bg-orange-500';
+  } else if (activeSettings.enableEquityScaling && pnlPercent > 1.0) {
+    if (pnlPercent >= 3.0) {
+      riskPhaseLabel = 'Fase 3: Snowball (Apalancamiento)';
+      phaseColorClass = 'text-indigo-700 dark:text-indigo-400';
+      phaseDotColor = 'bg-indigo-500 shadow-indigo-500/50';
+      glowColor = 'bg-indigo-500';
+    } else {
+      riskPhaseLabel = 'Fase 2: Aceleración (Colchón)';
+      phaseColorClass = 'text-blue-700 dark:text-blue-400';
+      phaseDotColor = 'bg-blue-500 shadow-blue-500/50';
+      glowColor = 'bg-blue-500';
+    }
+  }
 
   return (
     <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg shadow-gray-200/40 dark:shadow-black/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative overflow-hidden group">
       {/* Decorative gradient overlay */}
-      <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl opacity-20 group-hover:opacity-30 transition-opacity rounded-full pointer-events-none ${isIncreasedRisk ? 'bg-orange-500' : 'bg-emerald-500'}`} />
+      <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl opacity-20 group-hover:opacity-30 transition-opacity rounded-full pointer-events-none ${glowColor}`} />
 
       <div className="flex items-start justify-between mb-6 relative z-10">
         <div>
@@ -76,15 +111,15 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
 
         <div className="mt-3 pt-5 border-t border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3 mb-2">
-            <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${isIncreasedRisk ? 'bg-orange-500 shadow-orange-500/50' : 'bg-emerald-500 shadow-emerald-500/50'}`} />
-            <span className={`text-sm font-bold ${isIncreasedRisk ? 'text-orange-700 dark:text-orange-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-              {isIncreasedRisk ? 'Riesgo Aumentado por Recuperación' : 'Riesgo Base'}
+            <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${phaseDotColor}`} />
+            <span className={`text-sm font-bold ${phaseColorClass}`}>
+              {riskPhaseLabel}
             </span>
           </div>
           <div className="flex items-center gap-4 text-xs font-medium text-gray-500 dark:text-gray-400">
             <span>Base: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.baseRiskPercent}%</strong></span>
             <span>•</span>
-            <span>Multiplicador: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.lossMultiplier}x</strong></span>
+            <span>Máx: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.maxRiskPercent}%</strong></span>
           </div>
         </div>
       </div>
