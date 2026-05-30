@@ -41,7 +41,7 @@ import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
   const [hoveredMetric, setHoveredMetric] = useState<string | null>(null)
-  
+
   const { data: accounts = [], isLoading: accountsLoading } = useAccounts()
   const { data: trades = [], isLoading: tradesLoading } = useTrades()
   const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals()
@@ -87,8 +87,8 @@ export default function Dashboard() {
         <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8">
           Aún no has registrado ninguna cuenta de trading. Crea tu primera cuenta (evaluación o real) para comenzar a auditar tu rendimiento.
         </p>
-        <Link 
-          to="/accounts" 
+        <Link
+          to="/accounts"
           className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/25 transition-all flex items-center gap-2 cursor-pointer"
         >
           <Plus className="size-4" />
@@ -114,15 +114,15 @@ export default function Dashboard() {
   // Profit Factor
   const grossProfit = winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
   const grossLoss = losingTrades.reduce((sum, t) => sum + Math.abs(t.pnl || 0), 0)
-  const profitFactorStr = grossLoss > 0 
-    ? (grossProfit / grossLoss).toFixed(2) 
+  const profitFactorStr = grossLoss > 0
+    ? (grossProfit / grossLoss).toFixed(2)
     : (grossProfit > 0 ? 'Max' : '0.00')
 
   const pfValue = profitFactorStr === 'Max' ? 4.0 : parseFloat(profitFactorStr)
 
   // Riesgo / Beneficio Promedio
   const tradesWithRR = closedTrades.filter(t => t.riskRewardRatio > 0)
-  const avgRR = tradesWithRR.length > 0 
+  const avgRR = tradesWithRR.length > 0
     ? (tradesWithRR.reduce((sum, t) => sum + t.riskRewardRatio, 0) / tradesWithRR.length).toFixed(1)
     : '0.0'
 
@@ -308,9 +308,9 @@ export default function Dashboard() {
 
       {/* Grid de Métricas Clave */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        
+
         {/* Metrica 1: Balance */}
-        <Card 
+        <Card
           className="relative overflow-hidden group hover:border-indigo-500/50 dark:hover:border-indigo-500/40"
           onMouseEnter={() => setHoveredMetric("balance")}
           onMouseLeave={() => setHoveredMetric(null)}
@@ -362,7 +362,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Metrica 2: Win Rate */}
-        <Card 
+        <Card
           className="relative overflow-hidden group hover:border-emerald-500/50 dark:hover:border-emerald-500/40"
           onMouseEnter={() => setHoveredMetric("winrate")}
           onMouseLeave={() => setHoveredMetric(null)}
@@ -419,7 +419,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Metrica 3: Profit Factor */}
-        <Card 
+        <Card
           className="relative overflow-hidden group hover:border-blue-500/50 dark:hover:border-blue-500/40"
           onMouseEnter={() => setHoveredMetric("profit")}
           onMouseLeave={() => setHoveredMetric(null)}
@@ -445,7 +445,7 @@ export default function Dashboard() {
                 <span className="font-semibold text-blue-500">{profitFactorStr} / 4.0</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div 
+                <div
                   className="h-full rounded-full bg-blue-500 transition-all duration-500"
                   style={{ width: `${pfPercent}%` }}
                 />
@@ -456,7 +456,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Metrica 4: Risk Reward */}
-        <Card 
+        <Card
           className="relative overflow-hidden group hover:border-amber-500/50 dark:hover:border-amber-500/40"
           onMouseEnter={() => setHoveredMetric("risk")}
           onMouseLeave={() => setHoveredMetric(null)}
@@ -495,29 +495,29 @@ export default function Dashboard() {
       <Tabs defaultValue="overview" className="w-full">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
           <TabsList className="p-0 bg-transparent gap-2 h-auto">
-            <TabsTrigger 
-              value="overview" 
+            <TabsTrigger
+              value="overview"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Activity className="size-4 mr-1.5" />
               Vista General
             </TabsTrigger>
-            <TabsTrigger 
-              value="analytics" 
+            <TabsTrigger
+              value="analytics"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Scale className="size-4 mr-1.5" />
               Estadísticas Operativas
             </TabsTrigger>
-            <TabsTrigger 
-              value="capital" 
+            <TabsTrigger
+              value="capital"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Wallet className="size-4 mr-1.5" />
               Capital y Retiros
             </TabsTrigger>
-            <TabsTrigger 
-              value="activity" 
+            <TabsTrigger
+              value="activity"
               className="px-4 py-2 border-b-2 border-transparent data-[state=active]:border-indigo-500 rounded-none bg-transparent shadow-none dark:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 transition-all font-semibold cursor-pointer"
             >
               <Briefcase className="size-4 mr-1.5" />
@@ -550,7 +550,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="relative w-full h-[260px] flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/20 border border-slate-100 dark:border-slate-800/50 rounded-xl p-2 overflow-hidden">
-                
+
                 {/* Shadcn Chart de Alta Calidad */}
                 {equityPoints.length > 0 ? (
                   <ChartContainer
@@ -568,15 +568,15 @@ export default function Dashboard() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800/60" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         tickLine={false}
                         axisLine={false}
                         tickMargin={10}
                         minTickGap={30}
                         className="text-[10px] font-bold fill-slate-400 dark:fill-slate-500"
                       />
-                      <YAxis 
+                      <YAxis
                         tickLine={false}
                         axisLine={false}
                         tickMargin={10}
@@ -640,7 +640,7 @@ export default function Dashboard() {
                       {asset.profit >= 0 ? `+$${asset.profit.toLocaleString()}` : `-$${Math.abs(asset.profit).toLocaleString()}`}
                     </Badge>
                   </div>
-                  
+
                   {/* Winrate Bar */}
                   <div className="mt-2.5 space-y-1">
                     <div className="flex justify-between text-[11px]">
@@ -650,7 +650,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div 
+                      <div
                         className={cn("h-full rounded-full transition-all", asset.profit >= 0 ? 'bg-emerald-500' : 'bg-rose-500/80')}
                         style={{ width: `${asset.count > 0 ? (asset.wins / asset.count) * 100 : 0}%` }}
                       />
@@ -665,7 +665,7 @@ export default function Dashboard() {
         {/* CONTENIDO 2: ESTADÍSTICAS OPERATIVAS */}
         <TabsContent value="analytics" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            
+
             {/* Mediana / Promedio de Trade */}
             <Card>
               <CardHeader className="pb-2">
@@ -837,10 +837,10 @@ export default function Dashboard() {
                 <div>
                   <div className="flex items-center justify-between mb-1 text-sm">
                     <span className="text-slate-300 font-medium">Retorno de Inversión (ROI) Global</span>
-                    <Badge 
-                      variant={globalROI >= 0 ? "success" : "destructive"} 
-                      className={globalROI >= 0 
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30" 
+                    <Badge
+                      variant={globalROI >= 0 ? "success" : "destructive"}
+                      className={globalROI >= 0
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
                         : "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"}
                     >
                       {globalROIStr}
@@ -874,8 +874,8 @@ export default function Dashboard() {
                   Listado con el detalle del P&L de tus últimas posiciones en mercado.
                 </CardDescription>
               </div>
-              <Link 
-                to="/trades/new" 
+              <Link
+                to="/trades/new"
                 className="flex items-center gap-1 bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-bold transition-all hover:bg-indigo-500 shadow-sm cursor-pointer animate-in fade-in duration-300"
               >
                 <Plus className="size-3.5" />
@@ -898,8 +898,8 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
                     {recentTrades.length > 0 ? (
                       recentTrades.map((trade) => (
-                        <tr 
-                          key={trade.id} 
+                        <tr
+                          key={trade.id}
                           className="bg-white dark:bg-slate-950/20 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
                         >
                           <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -907,12 +907,12 @@ export default function Dashboard() {
                             {trade.asset}
                           </td>
                           <td className="px-6 py-4">
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className={cn(
                                 "px-2 py-0.5 select-none rounded text-[11px] font-bold",
-                                trade.direction === "Long" 
-                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                                trade.direction === "Long"
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                                   : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
                               )}
                             >
@@ -929,20 +929,20 @@ export default function Dashboard() {
                           </td>
                           <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-300">
                             {trade.exitPrice !== undefined && trade.exitPrice !== null && trade.exitPrice !== 0
-                              ? `$${trade.exitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+                              ? `$${trade.exitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                               : '-'}
                           </td>
                           <td className="px-6 py-4">
                             <span className={cn("font-mono font-bold text-base",
                               trade.pnl >= 0 ? "text-emerald-500" : "text-rose-500"
                             )}>
-                              {trade.pnl >= 0 
-                                ? `+$${trade.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+                              {trade.pnl >= 0
+                                ? `+$${trade.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 : `-$${Math.abs(trade.pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <Badge variant={trade.status === "Closed" ? "secondary" : "info"} className="rounded select-none gap-1 font-semibold">
+                            <Badge variant={trade.status === "Closed" ? "secondary" : "default"} className="rounded select-none gap-1 font-semibold">
                               {trade.status === "Open" && (
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
