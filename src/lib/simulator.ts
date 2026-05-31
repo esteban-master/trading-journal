@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Trade } from '@/types';
 import { calculateNextRisk, RiskProgressionSettings } from './risk';
 
@@ -7,22 +8,42 @@ export interface SimulatorParams {
   numberOfTrades: number;
   settings: RiskProgressionSettings;
   startingBalance: number;
+  iterations?: number;
+  commissionPerTrade?: number;
 }
 
 export interface SimulationSummary {
-  finalBalance: number;
-  totalWon: number;
-  totalLost: number;
-  maxDrawdownPercent: number;
-  maxConsecutiveWins: number;
-  maxConsecutiveLosses: number;
-  profitPercent: number;
+  finalBalanceMedian: number;
+  finalBalanceWorst: number;
+  finalBalanceBest: number;
+  totalWonMedian: number;
+  totalLostMedian: number;
+  maxDrawdownMedian: number;
+  maxDrawdownWorst: number;
+  maxConsecutiveWinsMedian: number;
+  maxConsecutiveLossesMedian: number;
+  profitPercentMedian: number;
+  probabilityOfRuinPercent: number;
+  probabilityOfProfitPercent: number;
+  kellyPercentage: number;
 }
 
 export interface SimulationResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dataPoints: any[];
+  chartData: any[];
+  samplePaths: any[];
   summary: SimulationSummary;
+}
+
+function getPercentile(arr: number[], q: number) {
+  const sorted = arr.slice().sort((a, b) => a - b);
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (sorted[base + 1] !== undefined) {
+    return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+  } else {
+    return sorted[base];
+  }
 }
 
 export function runMonteCarloSimulation({
@@ -31,122 +52,201 @@ export function runMonteCarloSimulation({
   numberOfTrades,
   settings,
   startingBalance,
+  iterations = 500,
+  commissionPerTrade = 0,
 }: SimulatorParams): SimulationResult {
-  console.log({ winRate, riskRewardRatio, numberOfTrades, settings, startingBalance })
-  let currentBalance = startingBalance;
-  let maxBalance = startingBalance;
-  let maxDrawdownPercent = 0;
   
-  let currentWinStreak = 0;
-  let currentLossStreak = 0;
-  let maxConsecutiveWins = 0;
-  let maxConsecutiveLosses = 0;
+  
+  // Array to hold the full balance path for each iteration
+  // iterationPaths[i][t] = balance for iteration i at trade t
+  const iterationPaths: number[][] = [];
+  const riskPaths: number[][] = [];
+  
+  // Store summary metrics per iteration
+  const finalBalances: number[] = [];
+  const maxDrawdowns: number[] = [];
+  const totalWons: number[] = [];
+  const totalLosts: number[] = [];
+  const maxWins: number[] = [];
+  const maxLosses: number[] = [];
+  
+  let ruinCount = 0;
+  let profitCount = 0;
 
-  let totalWon = 0;
-  let totalLost = 0;
+  for (let iter = 0; iter < iterations; iter++) {
+    let currentBalance = startingBalance;
+    let maxBalance = startingBalance;
+    let maxDrawdownPercent = 0;
+    
+    let currentWinStreak = 0;
+    let currentLossStreak = 0;
+    let iterMaxWins = 0;
+    let iterMaxLosses = 0;
 
-  const history: Trade[] = [];
+    let iterWon = 0;
+    let iterLost = 0;
 
-  console.log({history})
-  const dataPoints = [];
+    const history: Trade[] = [];
+    const balancePath = [startingBalance];
+    const riskPath = [settings.baseRiskPercent];
 
-  // Base point
-  dataPoints.push({
-    name: 'Inicio',
-    balance: startingBalance,
-    risk: settings.baseRiskPercent,
-    pnl: 0,
-  });
+    for (let i = 1; i <= numberOfTrades; i++) {
+      // Calculate Risk for this specific trade
+      const targetProximity = {
+        isEvaluation: false, 
+        targetProfitPercentage: undefined,
+        averageRR: riskRewardRatio,
+      };
 
-  for (let i = 1; i <= numberOfTrades; i++) {
-    // 1. Calculate Risk for this specific trade using the real algorithm
-    // Target proximity is disabled for pure probability simulation unless specified
-    const targetProximity = {
-      isEvaluation: false, 
-      targetProfitPercentage: undefined,
-      averageRR: riskRewardRatio,
-    };
+      const riskResult = calculateNextRisk(
+        history,
+        settings,
+        currentBalance,
+        startingBalance,
+        targetProximity
+      );
 
-    const riskResult = calculateNextRisk(
-      history,
-      settings,
-      currentBalance,
-      startingBalance,
-      targetProximity
-    );
+      // Dollar amount at risk
+      const dollarRisk = currentBalance * (riskResult.riskPercent / 100);
 
-    // 2. Dollar amount at risk
-    // It's calculated based on current balance
-    const dollarRisk = currentBalance * (riskResult.riskPercent / 100);
+      // Roll the dice!
+      const isWin = Math.random() * 100 <= winRate;
 
-    // 3. Roll the dice!
-    const isWin = Math.random() * 100 <= winRate;
+      let pnl = 0;
+      if (isWin) {
+        pnl = (dollarRisk * riskRewardRatio) - commissionPerTrade;
+        iterWon++;
+        currentWinStreak++;
+        currentLossStreak = 0;
+        if (currentWinStreak > iterMaxWins) iterMaxWins = currentWinStreak;
+      } else {
+        pnl = -dollarRisk - commissionPerTrade;
+        iterLost++;
+        currentLossStreak++;
+        currentWinStreak = 0;
+        if (currentLossStreak > iterMaxLosses) iterMaxLosses = currentLossStreak;
+      }
 
-    let pnl = 0;
-    if (isWin) {
-      pnl = dollarRisk * riskRewardRatio;
-      totalWon++;
-      currentWinStreak++;
-      currentLossStreak = 0;
-      if (currentWinStreak > maxConsecutiveWins) maxConsecutiveWins = currentWinStreak;
-    } else {
-      pnl = -dollarRisk;
-      totalLost++;
-      currentLossStreak++;
-      currentWinStreak = 0;
-      if (currentLossStreak > maxConsecutiveLosses) maxConsecutiveLosses = currentLossStreak;
+      currentBalance += pnl;
+
+      // Drawdown Tracking
+      if (currentBalance > maxBalance) {
+        maxBalance = currentBalance;
+      }
+      const currentDrawdown = ((maxBalance - currentBalance) / maxBalance) * 100;
+      if (currentDrawdown > maxDrawdownPercent) {
+        maxDrawdownPercent = currentDrawdown;
+      }
+
+      // Record for this trade
+      balancePath.push(currentBalance);
+      riskPath.push(riskResult.riskPercent);
+
+      // Push fake trade to history
+      const fakeTrade: Trade = {
+        id: `sim-${iter}-${i}`,
+        date: new Date().toISOString(),
+        asset: 'SIMULATED',
+        direction: 'Long',
+        entryPrice: 1,
+        exitPrice: isWin ? 2 : 0,
+        pnl,
+        status: 'Closed',
+        userId: '',
+        accountId: '',
+        strategy: '',
+        riskRewardRatio: 0,
+        images: []
+      };
+      history.push(fakeTrade);
+      
+      // Stop condition if account is virtually blown (e.g. 95% drawdown or balance <= 0)
+      if (currentBalance <= startingBalance * 0.05 || currentBalance <= 0) {
+        currentBalance = 0;
+        // Fill the rest of the path with 0
+        for (let fill = i + 1; fill <= numberOfTrades; fill++) {
+          balancePath.push(0);
+          riskPath.push(0);
+        }
+        break; 
+      }
     }
 
-    currentBalance += pnl;
+    iterationPaths.push(balancePath);
+    riskPaths.push(riskPath);
+    
+    finalBalances.push(currentBalance);
+    maxDrawdowns.push(maxDrawdownPercent);
+    totalWons.push(iterWon);
+    totalLosts.push(iterLost);
+    maxWins.push(iterMaxWins);
+    maxLosses.push(iterMaxLosses);
 
-    // Drawdown Tracking
-    if (currentBalance > maxBalance) {
-      maxBalance = currentBalance;
+    // If account dropped 90%+ or 0
+    if (maxDrawdownPercent >= 90 || currentBalance <= startingBalance * 0.05) {
+      ruinCount++;
     }
-    const currentDrawdown = ((maxBalance - currentBalance) / maxBalance) * 100;
-    if (currentDrawdown > maxDrawdownPercent) {
-      maxDrawdownPercent = currentDrawdown;
+    if (currentBalance > startingBalance) {
+      profitCount++;
     }
+  }
 
-    // Push fake trade to history so next calculateNextRisk knows about it
-    const fakeTrade: Trade = {
-      id: `sim-${i}`,
-      date: new Date().toISOString(),
-      asset: 'SIMULATED',
-      direction: 'Long',
-      entryPrice: 1,
-      exitPrice: isWin ? 2 : 0,
-      pnl,
-      status: 'Closed',
-      userId: '',
-      accountId: '',
-      strategy: '',
-      riskRewardRatio: 0,
-      images: []
-    };
-    history.push(fakeTrade);
-
-    dataPoints.push({
-      name: `T${i}`,
-      balance: currentBalance,
-      risk: riskResult.riskPercent,
-      pnl: pnl,
-      isWin,
+  // Calculate Kelly Criterion
+  // Kelly % = W - [(1 - W) / R]
+  const w = winRate / 100;
+  let kelly = w - ((1 - w) / riskRewardRatio);
+  if (kelly < 0) kelly = 0; // If negative edge, Kelly is 0
+  
+  // Aggregate Chart Data (per trade step across all iterations)
+  const chartData = [];
+  
+  for (let t = 0; t <= numberOfTrades; t++) {
+    const balancesAtT = iterationPaths.map(p => p[t]);
+    chartData.push({
+      name: t === 0 ? 'Inicio' : `T${t}`,
+      p10: getPercentile(balancesAtT, 0.1),
+      p25: getPercentile(balancesAtT, 0.25),
+      p50: getPercentile(balancesAtT, 0.5),
+      p75: getPercentile(balancesAtT, 0.75),
+      p90: getPercentile(balancesAtT, 0.9),
+      // We can use the risk of the first path just to show something representative if needed,
+      // or simply median risk
+      risk: getPercentile(riskPaths.map(r => r[t]), 0.5)
     });
   }
 
-  const profitPercent = ((currentBalance - startingBalance) / startingBalance) * 100;
+  // Pick a few random paths as sample paths for drawing faint background lines
+  const samplePaths = [];
+  const maxSamples = Math.min(20, iterations);
+  for(let i=0; i<maxSamples; i++) {
+    const pIdx = Math.floor(Math.random() * iterations);
+    const data = iterationPaths[pIdx].map((bal, t) => ({
+      name: t === 0 ? 'Inicio' : `T${t}`,
+      balance: bal
+    }));
+    samplePaths.push({
+      id: `path-${i}`,
+      data
+    });
+  }
 
   return {
-    dataPoints,
+    chartData,
+    samplePaths,
     summary: {
-      finalBalance: currentBalance,
-      totalWon,
-      totalLost,
-      maxDrawdownPercent,
-      maxConsecutiveWins,
-      maxConsecutiveLosses,
-      profitPercent,
+      finalBalanceMedian: getPercentile(finalBalances, 0.5),
+      finalBalanceWorst: Math.min(...finalBalances),
+      finalBalanceBest: Math.max(...finalBalances),
+      totalWonMedian: Math.round(getPercentile(totalWons, 0.5)),
+      totalLostMedian: Math.round(getPercentile(totalLosts, 0.5)),
+      maxDrawdownMedian: getPercentile(maxDrawdowns, 0.5),
+      maxDrawdownWorst: Math.max(...maxDrawdowns),
+      maxConsecutiveWinsMedian: Math.round(getPercentile(maxWins, 0.5)),
+      maxConsecutiveLossesMedian: Math.round(getPercentile(maxLosses, 0.5)),
+      profitPercentMedian: ((getPercentile(finalBalances, 0.5) - startingBalance) / startingBalance) * 100,
+      probabilityOfRuinPercent: (ruinCount / iterations) * 100,
+      probabilityOfProfitPercent: (profitCount / iterations) * 100,
+      kellyPercentage: kelly * 100
     }
   };
 }

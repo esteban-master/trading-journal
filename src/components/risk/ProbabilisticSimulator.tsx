@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Dices, RefreshCw, Info, Hash } from 'lucide-react';
+import { Dices, RefreshCw, Info, Hash, AlertTriangle, TrendingUp, Skull, Scale, TrendingDown } from 'lucide-react';
 import { useRiskStore } from '@/store/useRiskStore';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { runMonteCarloSimulation, SimulationResult } from '@/lib/simulator';
@@ -20,7 +20,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Area,
-  AreaChart,
+  ComposedChart,
 } from 'recharts';
 
 export function ProbabilisticSimulator() {
@@ -33,6 +33,8 @@ export function ProbabilisticSimulator() {
   const [winRate, setWinRate] = useState(40);
   const [riskRewardRatio, setRiskRewardRatio] = useState(parseFloat(avgRR) || 2);
   const [numberOfTrades, setNumberOfTrades] = useState(100);
+  const [iterations, setIterations] = useState(500);
+  const [commissionPerTrade, setCommissionPerTrade] = useState(0);
   
   // Settings overrides
   const [baseRiskPercent, setBaseRiskPercent] = useState(account?.baseRiskPercent || globalSettings.baseRiskPercent);
@@ -43,60 +45,91 @@ export function ProbabilisticSimulator() {
   // Result state
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [autoZoom, setAutoZoom] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
   const runSimulation = () => {
-    const startingBalance = account?.startingBalance || 10000;
+    setIsSimulating(true);
     
-    const simResult = runMonteCarloSimulation({
-      winRate,
-      riskRewardRatio,
-      numberOfTrades,
-      startingBalance,
-      settings: {
-        baseRiskPercent,
-        lossMultiplier,
-        maxRiskPercent,
-        enableEquityScaling,
-      }
-    });
+    // Use setTimeout to allow UI to show loading state before heavy calculation
+    setTimeout(() => {
+      const startingBalance = account?.startingBalance || 10000;
+      
+      const simResult = runMonteCarloSimulation({
+        winRate,
+        riskRewardRatio,
+        numberOfTrades,
+        startingBalance,
+        iterations,
+        commissionPerTrade,
+        settings: {
+          baseRiskPercent,
+          lossMultiplier,
+          maxRiskPercent,
+          enableEquityScaling,
+        }
+      });
 
-    setResult(simResult);
+      setResult(simResult);
+      setIsSimulating(false);
+    }, 50);
   };
 
   // Run initial simulation
   useEffect(() => {
-    if (open) {
+    if (open && !result) {
       runSimulation();
     }
   }, [open]);
 
+  // Transform data for ComposedChart
+  const chartData = useMemo(() => {
+    if (!result) return [];
+    
+    return result.chartData.map((cd, index) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const newCd: any = { ...cd };
+      result.samplePaths.forEach((path, i) => {
+        newCd[`sample${i}`] = path.data[index]?.balance;
+      });
+      return newCd;
+    });
+  }, [result]);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
         <Button variant="outline" className="w-full mt-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 dark:text-slate-300 dark:border-slate-800 transition-all">
           <Dices className="w-4 h-4 mr-2 text-indigo-500" />
           Proyección Probabilística
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-slate-50 dark:bg-slate-950">
+      <DialogContent className="sm:max-w-[1300px] w-[95vw] max-h-[95vh] overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <DialogHeader className="mb-4">
-          <DialogTitle className="flex items-center gap-2 text-2xl">
-            <Dices className="text-indigo-500 w-6 h-6" />
-            Laboratorio de Backtest (Monte Carlo)
+          <DialogTitle className="flex justify-between items-center text-2xl w-full pr-8">
+            <div className="flex items-center gap-2">
+              <Dices className="text-indigo-500 w-6 h-6" />
+              Laboratorio de Backtest Avanzado (Monte Carlo)
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setShowExplanation(true)} className="rounded-full text-indigo-500 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 h-8 w-8">
+              <Info className="w-4 h-4" />
+            </Button>
           </DialogTitle>
           <DialogDescription>
-            Simula miles de escenarios usando matemáticas puras. Descubre qué rentabilidad te daría tu estrategia con diferentes porcentajes de acierto (Winrate).
+            Simula miles de escenarios simultáneos usando matemáticas puras. Descubre tu riesgo real de ruina y el rendimiento más probable.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
           
           {/* LEFT SIDEBAR: CONTROLS */}
-          <div className="lg:col-span-1 flex flex-col gap-5 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
+          <div className="xl:col-span-1 flex flex-col gap-5 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
             <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-3 mb-2 flex justify-between items-center">
               Parámetros de la Estrategia
-              <Button onClick={runSimulation} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full h-8 px-3">
-                <RefreshCw className="w-3 h-3 mr-1" /> Tirar Dados
+              <Button onClick={runSimulation} disabled={isSimulating} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full h-8 px-3">
+                <RefreshCw className={`w-3 h-3 mr-1 ${isSimulating ? 'animate-spin' : ''}`} /> 
+                {isSimulating ? 'Calculando...' : 'Tirar Dados'}
               </Button>
             </h3>
 
@@ -130,7 +163,7 @@ export function ProbabilisticSimulator() {
 
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">
-                  Trades a Simular
+                  Trades por Camino
                 </label>
                 <div className="relative">
                   <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -138,6 +171,29 @@ export function ProbabilisticSimulator() {
                     type="number" step="10" min="10" max="10000" value={numberOfTrades} 
                     onChange={(e) => setNumberOfTrades(Number(e.target.value))}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">
+                    Caminos (Iter)
+                  </label>
+                  <input 
+                    type="number" step="100" min="100" max="5000" value={iterations} 
+                    onChange={(e) => setIterations(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">
+                    Comisión por Trade ($)
+                  </label>
+                  <input 
+                    type="number" step="0.5" min="0" value={commissionPerTrade} 
+                    onChange={(e) => setCommissionPerTrade(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
               </div>
@@ -201,72 +257,79 @@ export function ProbabilisticSimulator() {
             
             <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-medium border border-indigo-100 dark:border-indigo-800/50">
               <Info className="w-4 h-4 mb-2" />
-              Cada vez que presionas "Tirar Dados", la computadora juega {numberOfTrades} operaciones lanzando una moneda que está trucada a tu favor ({winRate}% de caer cara).
+              Simulando {iterations} universos paralelos de {numberOfTrades} trades cada uno, asumiendo una precisión del {winRate}%.
             </div>
           </div>
 
           {/* RIGHT SIDE: RESULTS */}
-          <div className="lg:col-span-3 flex flex-col gap-6">
+          <div className="xl:col-span-3 flex flex-col gap-6">
             
-            {!result ? (
-              <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+            {!result || isSimulating ? (
+              <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 min-h-[500px]">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-500 mb-4"></div>
+                <p className="text-slate-500 font-medium">Ejecutando {iterations} simulaciones simultáneas...</p>
               </div>
             ) : (
               <>
                 {/* Summary Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`p-5 rounded-2xl border shadow-sm flex flex-col ${result.summary.profitPercent >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50'}`}>
-                    <span className={`text-[11px] font-bold uppercase tracking-wider ${result.summary.profitPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                      Balance Proyectado
+                  
+                  {/* Balance Mediano */}
+                  <div className={`p-5 rounded-2xl border shadow-sm flex flex-col relative overflow-hidden ${result.summary.profitPercentMedian >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50'}`}>
+                    <TrendingUp className={`absolute -right-4 -top-4 w-24 h-24 opacity-5 ${result.summary.profitPercentMedian >= 0 ? 'text-emerald-900' : 'text-red-900'}`} />
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${result.summary.profitPercentMedian >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      Balance Proyectado (Mediana)
                     </span>
-                    <span className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
-                      ${result.summary.finalBalance.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    <span className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1 z-10">
+                      ${result.summary.finalBalanceMedian.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </span>
-                    <span className={`text-sm font-bold mt-1 ${result.summary.profitPercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {result.summary.profitPercent >= 0 ? '+' : ''}{result.summary.profitPercent.toFixed(2)}%
+                    <span className={`text-sm font-bold mt-1 z-10 ${result.summary.profitPercentMedian >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {result.summary.profitPercentMedian >= 0 ? '+' : ''}{result.summary.profitPercentMedian.toFixed(2)}%
                     </span>
                   </div>
 
+                  {/* Riesgo de Ruina */}
+                  <div className={`p-5 rounded-2xl border shadow-sm flex flex-col relative overflow-hidden ${result.summary.probabilityOfRuinPercent > 10 ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
+                    <Skull className={`absolute -right-2 -bottom-2 w-16 h-16 opacity-[0.03] ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-900' : 'text-slate-900'}`} />
+                    <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {result.summary.probabilityOfRuinPercent > 10 && <AlertTriangle className="w-3 h-3" />}
+                      Probabilidad de Ruina
+                    </span>
+                    <span className={`text-2xl font-black mt-1 z-10 ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-600 dark:text-red-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                      {result.summary.probabilityOfRuinPercent.toFixed(1)}%
+                    </span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 z-10">
+                      {result.summary.probabilityOfRuinPercent === 0 ? 'Riesgo de quiebra casi nulo' : 'Cuentas que perdieron >90%'}
+                    </span>
+                  </div>
+
+                  {/* Drawdown */}
                   <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Win / Loss
-                    </span>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-2xl font-black text-emerald-500">{result.summary.totalWon}</span>
-                      <span className="text-slate-300 dark:text-slate-600 text-xl">/</span>
-                      <span className="text-2xl font-black text-red-500">{result.summary.totalLost}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-red-100 dark:bg-red-900/30 rounded-full mt-3 overflow-hidden flex">
-                      <div className="h-full bg-emerald-500" style={{ width: `${(result.summary.totalWon / numberOfTrades) * 100}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Rachas Máximas
-                    </span>
-                    <div className="flex flex-col gap-1 mt-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-emerald-600">Ganadoras:</span>
-                        <span className="font-black text-emerald-500">{result.summary.maxConsecutiveWins}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-red-600">Perdedoras:</span>
-                        <span className="font-black text-red-500">{result.summary.maxConsecutiveLosses}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">
                       Max Drawdown
                     </span>
-                    <span className="text-2xl font-black text-orange-600 dark:text-orange-500 mt-1">
-                      -{result.summary.maxDrawdownPercent.toFixed(2)}%
+                    <div className="flex items-end gap-2 mt-1">
+                      <span className="text-2xl font-black text-orange-500">
+                        -{result.summary.maxDrawdownMedian.toFixed(1)}%
+                      </span>
+                      <span className="text-sm font-semibold text-slate-400 mb-1">Mediana</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                      <span className="text-slate-500">Peor caso:</span>
+                      <span className="font-bold text-red-500">-{result.summary.maxDrawdownWorst.toFixed(1)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Kelly Criterion */}
+                  <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                      <Scale className="w-3 h-3" /> Criterio de Kelly
                     </span>
-                    <span className="text-xs font-medium text-orange-700/70 dark:text-orange-400/70 mt-1">
-                      Caída máxima experimentada en la cuenta
+                    <span className="text-2xl font-black text-indigo-600 dark:text-indigo-500 mt-1">
+                      {result.summary.kellyPercentage > 0 ? `${result.summary.kellyPercentage.toFixed(1)}%` : '0%'}
+                    </span>
+                    <span className="text-xs font-medium text-indigo-700/70 dark:text-indigo-400/70 mt-1">
+                      {result.summary.kellyPercentage <= 0 ? 'La estrategia no tiene ventaja matemática.' : 'Riesgo óptimo sugerido por trade.'}
                     </span>
                   </div>
                 </div>
@@ -275,42 +338,74 @@ export function ProbabilisticSimulator() {
                 <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm relative min-h-[400px]">
                   
                   {/* Zoom Toggle */}
-                  <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Auto-Zoom Balance</span>
-                    <button 
-                      onClick={() => setAutoZoom(!autoZoom)}
-                      className={`w-8 h-4 rounded-full transition-colors relative ${autoZoom ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 bg-white w-3 h-3 rounded-full transition-transform ${autoZoom ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </button>
+                  <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Auto-Zoom</span>
+                      <button 
+                        onClick={() => setAutoZoom(!autoZoom)}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${autoZoom ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 bg-white w-3 h-3 rounded-full transition-transform ${autoZoom ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+                    {/* Legend Overlay */}
+                    <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm text-[10px] font-bold flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-emerald-500 border border-emerald-500 border-dashed"></div> Top 10% (Mejor)</div>
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-1 bg-indigo-500 rounded-full"></div> Percentil 50 (Mediana)</div>
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-red-500 border border-red-500 border-dashed"></div> Bottom 10% (Peor)</div>
+                    </div>
                   </div>
 
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={result.dataPoints} margin={{ top: 40, right: 30, left: 0, bottom: 0 }}>
+                    <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
                       <defs>
-                        <linearGradient id="colorSimBalance" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={result.summary.profitPercent >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor={result.summary.profitPercent >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0}/>
+                        <linearGradient id="colorP50" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
                       <XAxis dataKey="name" fontSize={12} tickMargin={10} opacity={0.5} axisLine={false} tickLine={false} minTickGap={30} />
                       <YAxis yAxisId="left" fontSize={12} tickFormatter={(val) => `$${val}`} opacity={0.5} axisLine={false} tickLine={false} domain={autoZoom ? ['auto', 'auto'] : [0, 'auto']} />
-                      <YAxis yAxisId="right" orientation="right" fontSize={12} tickFormatter={(val) => `${val}%`} opacity={0.5} axisLine={false} tickLine={false} />
+                      
                       <Tooltip 
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         formatter={(value: any, name: any) => {
                           const numValue = Number(value);
-                          if (name === 'balance') return [`$${numValue.toFixed(2)}`, 'Balance Proyectado'];
-                          if (name === 'risk') return [`${numValue.toFixed(2)}%`, 'Riesgo Recomendado'];
-                          if (name === 'pnl') return [`$${numValue.toFixed(2)}`, 'Resultado del Trade'];
+                          if (name === 'p90') return [`$${numValue.toFixed(2)}`, 'Top 10% Mejor Escenario'];
+                          if (name === 'p50') return [`$${numValue.toFixed(2)}`, 'Mediana (Más Probable)'];
+                          if (name === 'p10') return [`$${numValue.toFixed(2)}`, 'Top 10% Peor Escenario'];
+                          if (String(name).startsWith('sample')) return [`$${numValue.toFixed(2)}`, 'Simulación Aleatoria'];
                           return [value, name];
                         }}
+                        labelStyle={{ fontWeight: 'bold', color: '#64748b', marginBottom: '4px' }}
                       />
-                      <Area yAxisId="left" type="monotone" dataKey="balance" stroke={result.summary.profitPercent >= 0 ? "#10b981" : "#ef4444"} strokeWidth={3} fillOpacity={1} fill="url(#colorSimBalance)" />
-                      <Line yAxisId="right" type="stepAfter" dataKey="risk" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                    </AreaChart>
+                      
+                      {/* Background sample paths to visualize Monte Carlo noise */}
+                      {result.samplePaths.map((_, i) => (
+                        <Line 
+                          key={`sample${i}`} 
+                          yAxisId="left" 
+                          type="monotone" 
+                          dataKey={`sample${i}`} 
+                          stroke="#94a3b8" 
+                          strokeWidth={1} 
+                          dot={false} 
+                          opacity={0.15} 
+                          isAnimationActive={false} 
+                          activeDot={false}
+                        />
+                      ))}
+
+                      {/* Confidence Bands (P90 and P10) */}
+                      <Line yAxisId="left" type="monotone" dataKey="p90" stroke="#10b981" strokeDasharray="4 4" strokeWidth={2} dot={false} isAnimationActive={true} />
+                      <Line yAxisId="left" type="monotone" dataKey="p10" stroke="#ef4444" strokeDasharray="4 4" strokeWidth={2} dot={false} isAnimationActive={true} />
+                      
+                      {/* Median Area */}
+                      <Area yAxisId="left" type="monotone" dataKey="p50" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorP50)" isAnimationActive={true} activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }} />
+                      
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
 
@@ -322,5 +417,77 @@ export function ProbabilisticSimulator() {
 
       </DialogContent>
     </Dialog>
+
+    <Dialog open={showExplanation} onOpenChange={setShowExplanation}>
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto z-[100] bg-white dark:bg-slate-950">
+        <DialogHeader>
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <Dices className="text-indigo-500 w-5 h-5" /> 
+            ¿Cómo funciona el Multiverso del Trading?
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-5 text-sm text-slate-600 dark:text-slate-300 mt-4 leading-relaxed">
+          <p>
+            Imagina que el trading es como explorar el <strong>"Multiverso"</strong>.
+          </p>
+          
+          <div>
+            <h4 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 mb-1">
+              <span className="text-lg">🌌</span> El Superpoder del Monte Carlo
+            </h4>
+            <p>
+              Antes, hacer backtest era como jugar una partida de un videojuego una sola vez y decir: <em>"¡Terminé con $15,000, siempre ganaré eso!"</em>. Pero el mercado es travieso. El Monte Carlo crea <strong>cientos de universos paralelos</strong>. En cada universo, juegas las mismas operaciones, pero el "orden" de las victorias y derrotas cambia por pura suerte. Al final, junta las historias de todos los universos y te dice la gran verdad.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-1">
+              <Skull className="w-4 h-4" /> Probabilidad de Ruina (El "Game Over")
+            </h4>
+            <p>
+              De todos los universos simulados, ¿en cuántos de ellos tu cuenta llegó a cero? Si este número es alto, el simulador te está gritando: <em>"¡Cuidado! Estás arriesgando demasiado por jugada"</em>. Tu misión en el trading siempre es mantener este número cerca al 0%.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 mb-1">
+              <TrendingUp className="w-4 h-4" /> La Mediana (El Universo más "Normal")
+            </h4>
+            <p>
+              Si acomodamos todos los universos en una fila, desde el que tuvo la peor suerte hasta el más afortunado, el que está <strong>exactamente en el centro</strong> es la Mediana. Los profesionales miran la Mediana porque te dice: <em>"Esto es lo más aburrido, normal y probable que te va a pasar en la vida real"</em>.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1.5 mb-1">
+              <TrendingDown className="w-4 h-4" /> El Max Drawdown (La Montaña Rusa)
+            </h4>
+            <p>
+              Mide la caída más profunda que sufriste en los simulacros. Conocer tu peor caída te prepara psicológicamente. Si sabes que vas a sufrir una caída del -15% en el futuro, cuando pase de verdad no entrarás en pánico, porque dirás: <em>"Ah, el simulador me advirtió que esto era normal"</em>.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-1">
+              <Scale className="w-4 h-4" /> El Criterio de Kelly (El Sabio Consejero)
+            </h4>
+            <p>
+              Es una fórmula matemática que te susurra al oído: <em>"Para que tu dinero crezca lo más rápido posible sin quebrar, debes apostar exactamente este porcentaje"</em>. Si arriesgas más de lo que dice Kelly, la volatilidad matemática destruirá tu cuenta. Es tu límite de velocidad.
+            </p>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+            <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-2">Las Bandas en el Gráfico (El Cono del Destino)</h4>
+            <ul className="space-y-2 list-disc list-inside marker:text-slate-400">
+              <li><strong className="text-emerald-600 dark:text-emerald-400">Línea Verde (Top 10%):</strong> Lo que pasa si tienes muchísima suerte.</li>
+              <li><strong className="text-red-600 dark:text-red-400">Línea Roja (Bottom 10%):</strong> Tu escudo. Te muestra dónde terminarás si tienes pésima suerte.</li>
+              <li><strong className="text-indigo-600 dark:text-indigo-400">Mancha Central:</strong> Es donde vas a terminar el 80% de las veces.</li>
+            </ul>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
+
