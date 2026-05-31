@@ -323,14 +323,32 @@ export function ProbabilisticSimulator() {
                   {/* Kelly Criterion */}
                   <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-                      <Scale className="w-3 h-3" /> Criterio de Kelly
+                      <Scale className="w-3 h-3" /> Riesgo Óptimo (Kelly)
                     </span>
-                    <span className="text-2xl font-black text-indigo-600 dark:text-indigo-500 mt-1">
-                      {result.summary.kellyPercentage > 0 ? `${result.summary.kellyPercentage.toFixed(1)}%` : '0%'}
-                    </span>
-                    <span className="text-xs font-medium text-indigo-700/70 dark:text-indigo-400/70 mt-1">
-                      {result.summary.kellyPercentage <= 0 ? 'La estrategia no tiene ventaja matemática.' : 'Riesgo óptimo sugerido por trade.'}
-                    </span>
+                    
+                    {result.summary.kellyPercentage > 0 ? (
+                      <div className="flex flex-col gap-2 mt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold text-indigo-700/70 dark:text-indigo-400/80">Conservador (1/10):</span>
+                          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{(result.summary.kellyPercentage / 10).toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold text-indigo-700/70 dark:text-indigo-400/80">Agresivo (1/2):</span>
+                          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{(result.summary.kellyPercentage / 2).toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-indigo-200 dark:border-indigo-800/50">
+                          <span className="text-xs font-semibold text-red-500/80">Límite Teórico (Full):</span>
+                          <span className="text-sm font-black text-red-500">{result.summary.kellyPercentage.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-black text-indigo-600 dark:text-indigo-500 mt-1">0%</span>
+                        <span className="text-xs font-medium text-indigo-700/70 dark:text-indigo-400/70 mt-1">
+                          La estrategia no tiene ventaja matemática demostrable.
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -338,7 +356,7 @@ export function ProbabilisticSimulator() {
                 <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm relative min-h-[400px]">
                   
                   {/* Zoom Toggle */}
-                  <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                  <div className="absolute top-4 left-20 z-10 flex flex-col gap-2">
                     <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
                       <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Auto-Zoom</span>
                       <button 
