@@ -21,7 +21,11 @@ export interface SimulationSummary {
   maxDrawdownMedian: number;
   maxDrawdownWorst: number;
   maxConsecutiveWinsMedian: number;
+  maxConsecutiveWinsWorst: number;
+  maxConsecutiveWinsBest: number;
   maxConsecutiveLossesMedian: number;
+  maxConsecutiveLossesWorst: number;
+  maxConsecutiveLossesBest: number;
   profitPercentMedian: number;
   probabilityOfRuinPercent: number;
   probabilityOfProfitPercent: number;
@@ -242,7 +246,11 @@ export function runMonteCarloSimulation({
       maxDrawdownMedian: getPercentile(maxDrawdowns, 0.5),
       maxDrawdownWorst: Math.max(...maxDrawdowns),
       maxConsecutiveWinsMedian: Math.round(getPercentile(maxWins, 0.5)),
+      maxConsecutiveWinsWorst: Math.round(getPercentile(maxWins, 0.1)),
+      maxConsecutiveWinsBest: Math.round(getPercentile(maxWins, 0.9)),
       maxConsecutiveLossesMedian: Math.round(getPercentile(maxLosses, 0.5)),
+      maxConsecutiveLossesBest: Math.round(getPercentile(maxLosses, 0.1)),
+      maxConsecutiveLossesWorst: Math.round(getPercentile(maxLosses, 0.9)),
       profitPercentMedian: ((getPercentile(finalBalances, 0.5) - startingBalance) / startingBalance) * 100,
       probabilityOfRuinPercent: (ruinCount / iterations) * 100,
       probabilityOfProfitPercent: (profitCount / iterations) * 100,
