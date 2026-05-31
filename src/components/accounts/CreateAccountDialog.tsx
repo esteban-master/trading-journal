@@ -55,7 +55,7 @@ const createAccountSchema = z.object({
     .min(0, 'El costo no puede ser negativo'),
   startingBalance: z.coerce
     .number({ error: 'Introduce un número válido' })
-    .min(1000, 'El balance mínimo es $1,000'),
+    .min(200, 'El balance mínimo es $200'),
   targetProfitPercentage: z.coerce.number().optional(),
   maxDrawdownPercentage: z.coerce.number().optional(),
   targetProfitPercentagePhase2: z.coerce.number().optional(),

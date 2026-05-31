@@ -138,6 +138,7 @@ export function ProbabilisticSimulator() {
         }
       });
 
+      console.log(simResult)
       setResult(simResult);
       setIsSimulating(false);
     }, 50);
@@ -609,14 +610,19 @@ export function ProbabilisticSimulator() {
                       {optimizedResults.map((run, idx) => (
                         <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors">
                           <div>
-                            <div className="flex justify-between items-start mb-5">
-                              <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
-                                Recomendación #{idx + 1}
-                              </span>
-                              <div className="text-right">
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-0.5">Mediana Obtenida</div>
-                                <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                                  ${(run.results.medianBalance).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                            <div className="flex flex-col gap-3 mb-5">
+                              <div className="flex justify-start">
+                                <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                  Recomendación #{idx + 1}
+                                </span>
+                              </div>
+                              <div className="text-left">
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1">Balance Proyectado</div>
+                                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-none truncate">
+                                  ${((account?.startingBalance || 10000) * (1 + ((run.results.medianBalance - run.inputs.startingBalance) / run.inputs.startingBalance))).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                                </div>
+                                <div className="text-xs font-bold text-emerald-600/80 mt-1.5">
+                                  +{(((run.results.medianBalance - run.inputs.startingBalance) / run.inputs.startingBalance) * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })}% crecimiento
                                 </div>
                               </div>
                             </div>

@@ -63,8 +63,14 @@ export async function getOptimizedRiskSettings(winRate: number, riskRewardRatio:
     // Filtramos los que tienen ruina aceptable (<= 2%)
     const safeRuns = results.filter(run => run.results.ruinProbability <= 2);
 
-    // Ordenamos por la mayor ganancia de la mediana
-    safeRuns.sort((a, b) => b.results.medianBalance - a.results.medianBalance);
+    // Ordenamos por la mayor ganancia PORCENTUAL. 
+    // Esto es vital porque una cuenta de $100,000 siempre tendrá un medianBalance mayor que una de $10,000, 
+    // pero lo que nos importa es qué configuración rindió mejor en porcentaje.
+    safeRuns.sort((a, b) => {
+      const profitPercentA = (a.results.medianBalance - a.inputs.startingBalance) / a.inputs.startingBalance;
+      const profitPercentB = (b.results.medianBalance - b.inputs.startingBalance) / b.inputs.startingBalance;
+      return profitPercentB - profitPercentA;
+    });
 
     // Removemos duplicados de configuracion exacta (por si guardo lo mismo varias veces)
     const uniqueConfigs = new Map<string, SimulationRunPayload>();
