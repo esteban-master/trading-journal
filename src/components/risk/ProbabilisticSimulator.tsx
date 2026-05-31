@@ -363,7 +363,7 @@ export function ProbabilisticSimulator() {
             ) : (
               <>
                 {/* Summary Grid */}
-                <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                   
                   {/* Balance Mediano */}
                   <div className={`p-5 rounded-2xl border shadow-sm flex flex-col relative overflow-hidden ${result.summary.profitPercentMedian >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50'}`}>
@@ -371,26 +371,27 @@ export function ProbabilisticSimulator() {
                     <span className={`text-[11px] font-bold uppercase tracking-wider ${result.summary.profitPercentMedian >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                       Balance Proyectado (Mediana)
                     </span>
-                    <span className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1 z-10">
-                      ${result.summary.finalBalanceMedian.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    <span className="text-2xl xl:text-3xl font-black text-slate-800 dark:text-slate-100 mt-2 z-10 truncate" title={`$${result.summary.finalBalanceMedian.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`}>
+                      ${result.summary.finalBalanceMedian.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                     </span>
-                    <span className={`text-sm font-bold mt-1 z-10 ${result.summary.profitPercentMedian >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {result.summary.profitPercentMedian >= 0 ? '+' : ''}{result.summary.profitPercentMedian.toFixed(2)}%
+                    <span className={`text-sm font-bold mt-1 z-10 truncate ${result.summary.profitPercentMedian >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {result.summary.profitPercentMedian >= 0 ? '+' : ''}
+                      {result.summary.profitPercentMedian.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%
                     </span>
                   </div>
 
                   {/* Riesgo de Ruina */}
                   <div className={`p-5 rounded-2xl border shadow-sm flex flex-col relative overflow-hidden ${result.summary.probabilityOfRuinPercent > 10 ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
-                    <Skull className={`absolute -right-2 -bottom-2 w-16 h-16 opacity-[0.03] ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-900' : 'text-slate-900'}`} />
+                    <Skull className={`absolute -right-2 -bottom-2 w-20 h-20 opacity-[0.03] ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-900' : 'text-slate-900'}`} />
                     <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                       {result.summary.probabilityOfRuinPercent > 10 && <AlertTriangle className="w-3 h-3" />}
                       Probabilidad de Ruina
                     </span>
-                    <span className={`text-2xl font-black mt-1 z-10 ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-600 dark:text-red-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                    <span className={`text-3xl font-black mt-2 z-10 ${result.summary.probabilityOfRuinPercent > 10 ? 'text-red-600 dark:text-red-500' : 'text-slate-800 dark:text-slate-100'}`}>
                       {result.summary.probabilityOfRuinPercent.toFixed(1)}%
                     </span>
                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 z-10">
-                      {result.summary.probabilityOfRuinPercent === 0 ? 'Riesgo de quiebra casi nulo' : 'Cuentas que perdieron >90%'}
+                      {result.summary.probabilityOfRuinPercent === 0 ? 'Quiebra casi imposible' : 'Peligro de perder >90%'}
                     </span>
                   </div>
 
@@ -399,42 +400,42 @@ export function ProbabilisticSimulator() {
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Max Drawdown
                     </span>
-                    <div className="flex items-end gap-2 mt-1">
-                      <span className="text-2xl font-black text-orange-500">
+                    <div className="flex items-end gap-2 mt-2">
+                      <span className="text-3xl font-black text-orange-500">
                         -{result.summary.maxDrawdownMedian.toFixed(1)}%
                       </span>
                       <span className="text-sm font-semibold text-slate-400 mb-1">Mediana</span>
                     </div>
-                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                      <span className="text-slate-500">Peor caso:</span>
+                    <div className="flex justify-between items-center mt-auto pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                      <span className="text-slate-500">Peor caso posible:</span>
                       <span className="font-bold text-red-500">-{result.summary.maxDrawdownWorst.toFixed(1)}%</span>
                     </div>
                   </div>
 
-                  {/* Rachas */}
-                  <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Rachas Consecutivas
+                  {/* Rachas (Span 2 Columns) */}
+                  <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 col-span-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4">
+                      Rachas Consecutivas (Strikes)
                     </span>
-                    <div className="flex flex-col gap-2 mt-2">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-semibold text-emerald-600 mb-0.5">Ganadoras (Mejor/Med/Peor)</span>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-sm font-black text-emerald-600" title="Top 10%">{result.summary.maxConsecutiveWinsBest}</span>
+                    <div className="grid grid-cols-2 gap-6 h-full">
+                      <div className="flex flex-col justify-center">
+                        <span className="text-[10px] font-semibold text-emerald-600 uppercase mb-2">Racha Ganadora (Mejor / Med / Peor)</span>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-black text-emerald-600" title="Top 10%">{result.summary.maxConsecutiveWinsBest}</span>
                           <span className="text-slate-300">/</span>
-                          <span className="text-xl font-black text-emerald-500" title="Mediana">{result.summary.maxConsecutiveWinsMedian}</span>
+                          <span className="text-3xl font-black text-emerald-500" title="Mediana">{result.summary.maxConsecutiveWinsMedian}</span>
                           <span className="text-slate-300">/</span>
-                          <span className="text-sm font-black text-emerald-400/70" title="Peor caso">{result.summary.maxConsecutiveWinsWorst}</span>
+                          <span className="text-lg font-black text-emerald-400/70" title="Peor caso">{result.summary.maxConsecutiveWinsWorst}</span>
                         </div>
                       </div>
-                      <div className="flex flex-col pt-1.5 border-t border-slate-100 dark:border-slate-800">
-                        <span className="text-[10px] font-semibold text-red-600 mb-0.5">Perdedoras (Mejor/Med/Peor)</span>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-sm font-black text-red-400/70" title="Mejor caso">{result.summary.maxConsecutiveLossesBest}</span>
+                      <div className="flex flex-col justify-center pl-6 border-l border-slate-100 dark:border-slate-800">
+                        <span className="text-[10px] font-semibold text-red-600 uppercase mb-2">Racha Perdedora (Mejor / Med / Peor)</span>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-black text-red-400/70" title="Mejor caso">{result.summary.maxConsecutiveLossesBest}</span>
                           <span className="text-slate-300">/</span>
-                          <span className="text-xl font-black text-red-500" title="Mediana">{result.summary.maxConsecutiveLossesMedian}</span>
+                          <span className="text-3xl font-black text-red-500" title="Mediana">{result.summary.maxConsecutiveLossesMedian}</span>
                           <span className="text-slate-300">/</span>
-                          <span className="text-sm font-black text-red-600" title="Peor 10%">{result.summary.maxConsecutiveLossesWorst}</span>
+                          <span className="text-lg font-black text-red-600" title="Peor 10%">{result.summary.maxConsecutiveLossesWorst}</span>
                         </div>
                       </div>
                     </div>
@@ -447,7 +448,7 @@ export function ProbabilisticSimulator() {
                     </span>
                     
                     {result.summary.kellyPercentage > 0 ? (
-                      <div className="flex flex-col gap-2 mt-3">
+                      <div className="flex flex-col justify-between h-full mt-3">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-semibold text-indigo-700/70 dark:text-indigo-400/80">Conservador (1/10):</span>
                           <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{(result.summary.kellyPercentage / 10).toFixed(1)}%</span>
@@ -511,10 +512,11 @@ export function ProbabilisticSimulator() {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         formatter={(value: any, name: any) => {
                           const numValue = Number(value);
-                          if (name === 'p90') return [`$${numValue.toFixed(2)}`, 'Top 10% Mejor Escenario'];
-                          if (name === 'p50') return [`$${numValue.toFixed(2)}`, 'Mediana (Más Probable)'];
-                          if (name === 'p10') return [`$${numValue.toFixed(2)}`, 'Top 10% Peor Escenario'];
-                          if (String(name).startsWith('sample')) return [`$${numValue.toFixed(2)}`, 'Simulación Aleatoria'];
+                          const formattedStr = numValue.toLocaleString('es-ES', { maximumFractionDigits: 0 });
+                          if (name === 'p90') return [`$${formattedStr}`, 'Top 10% Mejor Escenario'];
+                          if (name === 'p50') return [`$${formattedStr}`, 'Mediana (Más Probable)'];
+                          if (name === 'p10') return [`$${formattedStr}`, 'Top 10% Peor Escenario'];
+                          if (String(name).startsWith('sample')) return [`$${formattedStr}`, 'Simulación Aleatoria'];
                           return [value, name];
                         }}
                         labelStyle={{ fontWeight: 'bold', color: '#64748b', marginBottom: '4px' }}
