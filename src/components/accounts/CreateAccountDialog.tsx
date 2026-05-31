@@ -72,7 +72,7 @@ const createAccountSchema = z.object({
 type CreateAccountValues = z.infer<typeof createAccountSchema>
 
 // ─── Common Firms ──────────────────────────────────────────────────────────────
-const FIRMS = ['Topstep', 'FTMO', 'MyForexFunds', 'Apex Trader Funding', 'The Funded Trader', 'True Forex Funds', 'Otra']
+const FIRMS = ['Topstep', 'FTMO', 'FundedNext', 'WsFunded', 'Pepperstone', 'Otra']
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 interface CreateAccountDialogProps {
@@ -171,7 +171,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1">
-            
+
             {/* Contenedor scrollable para los campos */}
             <div className="flex flex-col gap-5 max-h-[55vh] md:max-h-[60vh] overflow-y-auto pr-3 -mr-3 pb-2">
               {/* Nombre de la Cuenta */}
@@ -253,7 +253,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Estado</FormLabel>
-                      <Select 
+                      <Select
                         onValueChange={(val) => {
                           field.onChange(val);
                           if (val === 'Real' || val === 'Funded') {
@@ -267,7 +267,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                             form.setValue('lossMultiplier', 1.2);
                             form.setValue('enableEquityScaling', true);
                           }
-                        }} 
+                        }}
                         defaultValue={field.value}
                       >
                         <FormControl>
@@ -372,7 +372,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   <Layers className="size-4 text-slate-500" />
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
                 </div>
-                
+
                 {(form.watch('status') === 'Real' || form.watch('status') === 'Funded') && (
                   <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 rounded-lg flex items-start gap-3">
                     <Info className="size-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
@@ -385,8 +385,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                 <div className="flex flex-col gap-2 mb-1">
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Perfiles de Riesgo Rápidos</span>
                   <div className="grid grid-cols-3 gap-2">
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       variant="outline"
                       className="flex flex-col items-center justify-center p-2 h-auto border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20 transition-colors"
                       onClick={() => {
@@ -397,8 +397,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                       <span className="text-emerald-600 dark:text-emerald-500 font-bold text-xs">Conservador</span>
                       <span className="text-[10px] text-slate-500 font-medium">0.6% | 1.1x</span>
                     </Button>
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       variant="outline"
                       className="flex flex-col items-center justify-center p-2 h-auto border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:border-blue-900/50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => {
@@ -409,8 +409,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                       <span className="text-blue-600 dark:text-blue-500 font-bold text-xs">Medio</span>
                       <span className="text-[10px] text-slate-500 font-medium">0.7% | 1.2x</span>
                     </Button>
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       variant="outline"
                       className="flex flex-col items-center justify-center p-2 h-auto border-purple-200 hover:border-purple-400 hover:bg-purple-50 dark:border-purple-900/50 dark:hover:bg-purple-900/20 transition-colors"
                       onClick={() => {
@@ -423,7 +423,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -508,7 +508,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                     <TrendingUp className="size-4 text-indigo-500" />
                     <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -586,7 +586,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                       </div>
                     </>
                   )}
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

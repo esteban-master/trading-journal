@@ -15,7 +15,8 @@ interface RiskAdvisorCardProps {
 export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   const { settings: globalSettings } = useRiskStore();
   const { account, avgRR } = useAccountDetailStore();
-  
+
+  console.log(account)
   const activeSettings = useMemo(() => {
     return {
       baseRiskPercent: account?.baseRiskPercent ?? globalSettings.baseRiskPercent,
@@ -24,10 +25,10 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
       maxRiskPercent: account?.maxRiskPercent ?? globalSettings.maxRiskPercent,
     };
   }, [
-    account?.baseRiskPercent, 
-    account?.lossMultiplier, 
-    account?.enableEquityScaling, 
-    account?.maxRiskPercent, 
+    account?.baseRiskPercent,
+    account?.lossMultiplier,
+    account?.enableEquityScaling,
+    account?.maxRiskPercent,
     globalSettings
   ]);
 
@@ -36,9 +37,9 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
     return calculateNextRisk(
-      sortedTrades, 
-      activeSettings, 
-      account?.currentBalance, 
+      sortedTrades,
+      activeSettings,
+      account?.currentBalance,
       account?.startingBalance,
       {
         isEvaluation: account?.status === 'Evaluation',
@@ -47,27 +48,27 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
       }
     );
   }, [trades, activeSettings, account?.currentBalance, account?.startingBalance, account?.status, account?.targetProfitPercentage, avgRR]);
-  
+
   const recommendedNextRisk = recommendedNextRiskResult.riskPercent;
   const isCappedByTarget = recommendedNextRiskResult.isCappedByTarget;
-  
+
   const currentStreak = useMemo(() => {
     const sortedTrades = [...trades].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
     return calculateConsecutiveLosses(sortedTrades);
   }, [trades]);
-  
+
   const isIncreasedRisk = currentStreak > 0;
-  
+
   const pnlPercent = account && account.startingBalance ? ((account.currentBalance - account.startingBalance) / account.startingBalance) * 100 : 0;
-  
+
   // Phase logic
   let riskPhaseLabel = 'Fase 1: Supervivencia';
   let phaseColorClass = 'text-emerald-700 dark:text-emerald-400';
   let phaseDotColor = 'bg-emerald-500 shadow-emerald-500/50';
   let glowColor = 'bg-emerald-500';
-  
+
   if (isCappedByTarget) {
     riskPhaseLabel = 'Fase 4: Cierre de Prueba';
     phaseColorClass = 'text-purple-700 dark:text-purple-400';
@@ -101,7 +102,7 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Asesor de Riesgo</h3>
-            <RiskExplanationModal />
+            {account && <RiskExplanationModal account={account} />}
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Calculado sobre tu racha actual</p>
         </div>
@@ -150,11 +151,11 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
         </div>
 
         <div className="flex flex-col gap-2 mt-4">
-          <RiskPlaygroundModal 
-            trades={trades} 
-            account={account} 
-            activeSettings={activeSettings} 
-            avgRR={avgRR} 
+          <RiskPlaygroundModal
+            trades={trades}
+            account={account}
+            activeSettings={activeSettings}
+            avgRR={avgRR}
           />
           <ProbabilisticSimulator />
         </div>
