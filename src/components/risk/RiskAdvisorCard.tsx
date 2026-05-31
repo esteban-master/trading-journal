@@ -5,6 +5,7 @@ import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { calculateNextRisk, calculateConsecutiveLosses } from '@/lib/risk';
 import { Trade } from '@/types';
 import { RiskExplanationModal } from './RiskExplanationModal';
+import { RiskPlaygroundModal } from './RiskPlaygroundModal';
 
 interface RiskAdvisorCardProps {
   trades: Trade[];
@@ -146,6 +147,13 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
             <span>Mult: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.lossMultiplier}x</strong></span>
           </div>
         </div>
+
+        <RiskPlaygroundModal 
+          trades={trades} 
+          account={account} 
+          activeSettings={activeSettings} 
+          avgRR={avgRR} 
+        />
       </div>
     </div>
   );
