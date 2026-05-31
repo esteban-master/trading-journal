@@ -25,6 +25,7 @@ import {
 
 export function ProbabilisticSimulator() {
   const [open, setOpen] = useState(false);
+  
   const { settings: globalSettings } = useRiskStore();
   const { account, avgRR } = useAccountDetailStore();
 
