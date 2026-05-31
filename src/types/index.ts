@@ -56,6 +56,7 @@ export interface Withdrawal {
   accountId: string;
   amount: number;
   netAmount?: number; // the amount actually received after profit split
+  profitSplit?: number; // the profit split percentage at the time of withdrawal
   date: string; // ISO date string
   notes?: string;
 }

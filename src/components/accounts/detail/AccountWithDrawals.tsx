@@ -55,8 +55,15 @@ export function AccountWithDrawals() {
                             <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-slate-700 dark:text-slate-200">
                               ${withdrawal.amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
-                            <TableCell className="px-4 py-3 align-middle font-extrabold tracking-tight tabular-nums text-emerald-500">
-                              ${(withdrawal.netAmount || (withdrawal.amount * (account.status === 'Real' ? 100 : (account.profitSplit ?? 100)) / 100)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <TableCell className="px-4 py-3 align-middle">
+                              <div className="flex flex-col">
+                                <span className="font-extrabold tracking-tight tabular-nums text-emerald-500">
+                                  ${(withdrawal.netAmount || (withdrawal.amount * (account.status === 'Real' ? 100 : (account.profitSplit ?? 100)) / 100)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-semibold uppercase mt-0.5">
+                                  Split: {withdrawal.profitSplit ?? (account.status === 'Real' ? 100 : account.profitSplit ?? 100)}%
+                                </span>
+                              </div>
                             </TableCell>
                             <TableCell className="px-4 py-3 align-middle text-slate-600 dark:text-slate-300">
                               {withdrawal.notes || <span className="text-slate-400">—</span>}

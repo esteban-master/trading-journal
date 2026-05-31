@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import EvaluationPanel from '@/components/accounts/EvaluationPanel';
 import { TradesList } from '../../components/accounts/detail/AccountTradesList';
 import { AccountPhaseSelector } from '../../components/accounts/detail/AccountPhaseSelector';
+import { EditAccountDialog } from '@/components/accounts/EditAccountDialog';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { AccountWithDrawals } from '../../components/accounts/detail/AccountWithDrawals';
 import { AccountEquityChart } from '../../components/accounts/detail/AccountEquityChart';
@@ -56,7 +57,7 @@ export default function AccountDetail() {
     if (account) {
       setAccountData(account, trades, withdrawals, account.phase || 1);
     }
-  }, [account?.id, account?.phase, trades.length, withdrawals.length])
+  }, [account, trades, withdrawals])
 
 
   const loading = accountLoading || tradesLoading || withdrawalsLoading;
@@ -127,8 +128,11 @@ export default function AccountDetail() {
           </div>
         </div>
 
-        {/* Phase Selector Tabs */}
-        {account.status !== 'Real' && <AccountPhaseSelector account={account} />}
+        <div className="flex items-center gap-3">
+          <EditAccountDialog account={account} />
+          {/* Phase Selector Tabs */}
+          {account.status !== 'Real' && <AccountPhaseSelector account={account} />}
+        </div>
       </div>
 
       {/* Panel de Evaluación (Condicional) */}

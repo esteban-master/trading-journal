@@ -25,6 +25,7 @@ const normalizeWithdrawal = (docId: string, data: DocumentData): Withdrawal => {
     accountId: data.accountId,
     amount: data.amount,
     netAmount: data.netAmount,
+    profitSplit: data.profitSplit,
     date: data.date instanceof Timestamp
       ? data.date.toDate().toISOString()
       : data.date ?? new Date().toISOString(),
@@ -120,6 +121,7 @@ export function useCreateWithdrawal() {
           accountId: newWithdrawal.accountId,
           amount: newWithdrawal.amount,
           netAmount: netAmount,
+          profitSplit: profitSplit,
           date: newWithdrawal.date,
           createdAt: Timestamp.fromDate(new Date(newWithdrawal.date)),
           notes: newWithdrawal.notes || ''
