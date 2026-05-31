@@ -50,14 +50,17 @@ export default function AccountDetail() {
   } = useAccountDetailStore();
 
   const { data: account, isLoading: accountLoading, error: accountError } = useAccountDetail(id);
-  const { data: trades = [], isLoading: tradesLoading } = useTrades(id);
-  const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(id);
+  const { data: tradesData, isLoading: tradesLoading } = useTrades(id);
+  const { data: withdrawalsData, isLoading: withdrawalsLoading } = useWithdrawals(id);
+
+  const trades = tradesData || [];
+  const withdrawals = withdrawalsData || [];
 
   useEffect(() => {
-    if (account) {
+    if (account && !accountLoading && !tradesLoading && !withdrawalsLoading) {
       setAccountData(account, trades, withdrawals, account.phase || 1);
     }
-  }, [account, trades, withdrawals])
+  }, [account, tradesData, withdrawalsData, accountLoading, tradesLoading, withdrawalsLoading, setAccountData]);
 
 
   const loading = accountLoading || tradesLoading || withdrawalsLoading;
