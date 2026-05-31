@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
+import { TradeDetailsSheet } from '../../trades/TradeDetailsSheet';
 const columns: ColumnDef<Trade>[] = [
   {
     accessorKey: 'date',
@@ -209,7 +210,7 @@ const columns: ColumnDef<Trade>[] = [
                     alt="Preview"
                     className="object-cover w-full h-full"
                   />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 text-[10px] text-white text-center font-semibold">
+                  <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-1.5 text-[10px] text-white text-center font-semibold">
                     Clic para ampliar
                   </div>
                 </div>
@@ -270,6 +271,10 @@ const columns: ColumnDef<Trade>[] = [
         </TooltipProvider>
       );
     },
+  },
+  {
+    id: 'actions',
+    cell: ({ row }) => <TradeDetailsSheet trade={row.original} />,
   },
 ];
 

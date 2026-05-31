@@ -35,6 +35,7 @@ const normalizeTrade = (docId: string, data: DocumentData): Trade => {
     strategy: data.strategy ?? '',
     riskRewardRatio: data.riskRewardRatio ?? 0,
     riskPercent: data.riskPercent,
+    description: data.description ?? '',
     images: data.images ?? [],
     date: data.date instanceof Timestamp
       ? data.date.toDate().toISOString()
@@ -114,6 +115,7 @@ export function useCreateTrade() {
         strategy: newTrade.strategy,
         riskRewardRatio: newTrade.riskRewardRatio,
         riskPercent: newTrade.riskPercent ?? null,
+        description: newTrade.description ?? '',
         images: newTrade.images ?? [],
         status: newTrade.status ?? 'Closed',
         date: newTrade.date,

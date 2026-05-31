@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
 import { UploadCloud, X, Loader2, Info } from 'lucide-react';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -54,6 +55,7 @@ const tradeSchema = z.object({
   exitPrice: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
   pnl: z.coerce.number({ error: 'Número inválido' }),
   strategy: z.string().min(1, 'Introduce la estrategia'),
+  description: z.string().optional(),
   riskReward: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
   riskPercent: z.coerce.number({ error: 'Número inválido' }).optional(),
   date: z.string().min(1, 'Selecciona la fecha y hora de la operación'),
@@ -82,6 +84,7 @@ export default function TradeForm() {
       exitPrice: 0,
       pnl: 0,
       strategy: '',
+      description: '',
       riskReward: 0,
       date: getLocalDateTimeString(),
     },
@@ -112,6 +115,7 @@ export default function TradeForm() {
         exitPrice: values.exitPrice,
         pnl: values.pnl,
         strategy: values.strategy,
+        description: values.description,
         riskRewardRatio: values.riskReward,
         riskPercent: values.riskPercent,
         images: [], // File upload can be integrated later if needed
@@ -321,6 +325,21 @@ export default function TradeForm() {
                   )}
                 />
               </div>
+
+              {/* Descripción (Rich Text) */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción y notas</FormLabel>
+                    <FormControl>
+                      <RichTextEditor value={field.value || ''} onChange={field.onChange} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Fecha y Hora */}
               <FormField
