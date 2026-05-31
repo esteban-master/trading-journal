@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 // ─── Zod Schema ────────────────────────────────────────────────────────────────
 const editAccountSchema = z.object({
@@ -115,7 +116,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <Building2 className="size-5 text-indigo-500" />
@@ -130,8 +131,9 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1">
-            
-            <div className="flex flex-col gap-5 max-h-[55vh] md:max-h-[60vh] overflow-y-auto pr-3 -mr-3 pb-2">
+
+            <ScrollArea className="h-[55vh] md:h-[60vh] pr-3">
+              <div className="flex flex-col gap-5 pb-2">
               {/* Nombre de la Cuenta */}
               <FormField
                 control={form.control}
@@ -182,7 +184,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
                     <Layers className="size-4 text-slate-500" />
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
                   </div>
-                  
+
                   {/* Warning Educativo */}
                   <div className="flex flex-col gap-2 mt-2">
                     <div className="flex gap-2 items-start bg-indigo-50 dark:bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-100 dark:border-indigo-900/50">
@@ -192,7 +194,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
                         Solo ajusta estos valores en frío (fin de semana) si cambian las reglas de tu empresa de fondeo, o si has acumulado suficiente capital para evolucionar permanentemente tu estrategia.
                       </p>
                     </div>
-                    
+
                     <div className="flex gap-2 items-start bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-lg border border-rose-100 dark:border-rose-900/50">
                       <AlertTriangle className="size-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                       <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
@@ -202,7 +204,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -277,7 +279,8 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
                 </div>
               </div>
 
-            </div>
+              </div>
+            </ScrollArea>
 
             <Separator />
 

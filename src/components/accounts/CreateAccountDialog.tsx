@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 
 // ─── Zod Schema ────────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <Building2 className="size-5 text-indigo-500" />
@@ -173,451 +174,453 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1">
 
             {/* Contenedor scrollable para los campos */}
-            <div className="flex flex-col gap-5 max-h-[55vh] md:max-h-[60vh] overflow-y-auto pr-3 -mr-3 pb-2">
-              {/* Nombre de la Cuenta */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre de la Cuenta</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Layers className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                        <Input
-                          placeholder="ej. Topstep 50k #1"
-                          className="pl-9"
-                          {...field}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>
-                      Un alias que te permita identificar esta cuenta fácilmente.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Firma */}
+            <ScrollArea className="h-[55vh] md:h-[60vh] pr-3">
+              <div className="flex flex-col gap-5 pb-2">
+                {/* Nombre de la Cuenta */}
                 <FormField
                   control={form.control}
-                  name="firm"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Firma / Empresa</FormLabel>
-                      <Select
-                        onValueChange={(val) => {
-                          if (val === 'Otra') {
-                            field.onChange('')
-                          } else {
-                            field.onChange(val)
-                          }
-                        }}
-                        value={FIRMS.includes(field.value) ? field.value : 'Otra'}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Selecciona una firma" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectGroup>
-                            {FIRMS.map((firm) => (
-                              <SelectItem key={firm} value={firm}>
-                                {firm}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      {/* Si selecciona "Otra", mostrar input libre */}
-                      {(!FIRMS.slice(0, -1).includes(field.value)) && (
-                        <Input
-                          placeholder="Nombre de la firma"
-                          className="mt-2"
-                          value={field.value}
-                          onChange={(e) => field.onChange(e.target.value)}
-                        />
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Estado */}
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Estado</FormLabel>
-                      <Select
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          if (val === 'Real' || val === 'Funded') {
-                            form.setValue('baseRiskPercent', 0.25);
-                            form.setValue('maxRiskPercent', 1.0);
-                            form.setValue('lossMultiplier', 1.0);
-                            form.setValue('enableEquityScaling', false);
-                          } else if (val === 'Evaluation') {
-                            form.setValue('baseRiskPercent', 0.55);
-                            form.setValue('maxRiskPercent', 2.8);
-                            form.setValue('lossMultiplier', 1.2);
-                            form.setValue('enableEquityScaling', true);
-                          }
-                        }}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Estado actual" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value="Evaluation">Evaluación</SelectItem>
-                            <SelectItem value="Funded">Fondeada ✅</SelectItem>
-                            <SelectItem value="Payout">Payout pendiente 💰</SelectItem>
-                            <SelectItem value="Blown">Quemada ❌</SelectItem>
-                            <SelectItem value="Real">Real (Personal) 🏦</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className={form.watch('status') === 'Real' ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
-                {/* Costo */}
-                {form.watch('status') !== 'Real' && (
-                  <FormField
-                    control={form.control}
-                    name="cost"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Costo de Compra (USD)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="49.00"
-                              className="pl-9"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormDescription>Lo que pagaste por la evaluación.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* Balance Inicial */}
-                <FormField
-                  control={form.control}
-                  name="startingBalance"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Balance de la Cuenta</FormLabel>
+                      <FormLabel>Nombre de la Cuenta</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                          <Layers className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                           <Input
-                            type="number"
-                            step="1000"
-                            placeholder="50000"
+                            placeholder="ej. Topstep 50k #1"
                             className="pl-9"
                             {...field}
                           />
                         </div>
                       </FormControl>
-                      <FormDescription>Tamaño de la cuenta (ej. 50,000).</FormDescription>
+                      <FormDescription>
+                        Un alias que te permita identificar esta cuenta fácilmente.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* Profit Split */}
-                {form.watch('status') !== 'Real' && (
-                  <FormField
-                    control={form.control}
-                    name="profitSplit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Profit Split (%)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input type="number" min="0" max="100" className="pr-8" {...field} value={field.value || ''} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                          </div>
-                        </FormControl>
-                        <FormDescription>Tu % de ganancias.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-              </div>
-
-              {/* Campos de Gestión de Riesgo */}
-              <div className="flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Layers className="size-4 text-slate-500" />
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
-                </div>
-
-                {(form.watch('status') === 'Real' || form.watch('status') === 'Funded') && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 rounded-lg flex items-start gap-3">
-                    <Info className="size-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-800 dark:text-amber-400">
-                      <strong>Recomendación Institucional:</strong> Al ser una cuenta sin meta de profit, tu objetivo es la supervivencia a largo plazo. Hemos pre-llenado parámetros <strong>muy conservadores</strong> para proteger tu capital.
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 mb-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Perfiles de Riesgo Rápidos</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex flex-col items-center justify-center p-2 h-auto border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20 transition-colors"
-                      onClick={() => {
-                        form.setValue('baseRiskPercent', 0.6);
-                        form.setValue('lossMultiplier', 1.1);
-                      }}
-                    >
-                      <span className="text-emerald-600 dark:text-emerald-500 font-bold text-xs">Conservador</span>
-                      <span className="text-[10px] text-slate-500 font-medium">0.6% | 1.1x</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex flex-col items-center justify-center p-2 h-auto border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:border-blue-900/50 dark:hover:bg-blue-900/20 transition-colors"
-                      onClick={() => {
-                        form.setValue('baseRiskPercent', 0.7);
-                        form.setValue('lossMultiplier', 1.2);
-                      }}
-                    >
-                      <span className="text-blue-600 dark:text-blue-500 font-bold text-xs">Medio</span>
-                      <span className="text-[10px] text-slate-500 font-medium">0.7% | 1.2x</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex flex-col items-center justify-center p-2 h-auto border-purple-200 hover:border-purple-400 hover:bg-purple-50 dark:border-purple-900/50 dark:hover:bg-purple-900/20 transition-colors"
-                      onClick={() => {
-                        form.setValue('baseRiskPercent', 0.8);
-                        form.setValue('lossMultiplier', 1.5);
-                      }}
-                    >
-                      <span className="text-purple-600 dark:text-purple-500 font-bold text-xs">Agresivo</span>
-                      <span className="text-[10px] text-slate-500 font-medium">0.8% | 1.5x</span>
-                    </Button>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Firma */}
                   <FormField
                     control={form.control}
-                    name="baseRiskPercent"
+                    name="firm"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Riesgo Base (%)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input type="number" step="0.01" className="pr-8" {...field} value={field.value || ''} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                          </div>
-                        </FormControl>
-                        <FormDescription>Porcentaje por defecto.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lossMultiplier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Multiplicador</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input type="number" step="0.01" className="pr-8" {...field} value={field.value || ''} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">x</span>
-                          </div>
-                        </FormControl>
-                        <FormDescription>Incremento tras pérdida.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <FormField
-                    control={form.control}
-                    name="enableEquityScaling"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 p-3 shadow-sm bg-white dark:bg-slate-900/50">
-                        <div className="space-y-0.5">
-                          <FormLabel>Escalamiento (Buffer)</FormLabel>
-                          <FormDescription>
-                            Sube riesgo al estar en profit.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
+                        <FormLabel>Firma / Empresa</FormLabel>
+                        <Select
+                          onValueChange={(val) => {
+                            if (val === 'Otra') {
+                              field.onChange('')
+                            } else {
+                              field.onChange(val)
+                            }
+                          }}
+                          value={FIRMS.includes(field.value) ? field.value : 'Otra'}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecciona una firma" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectGroup>
+                              {FIRMS.map((firm) => (
+                                <SelectItem key={firm} value={firm}>
+                                  {firm}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        {/* Si selecciona "Otra", mostrar input libre */}
+                        {(!FIRMS.slice(0, -1).includes(field.value)) && (
+                          <Input
+                            placeholder="Nombre de la firma"
+                            className="mt-2"
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value)}
                           />
-                        </FormControl>
+                        )}
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {/* Estado */}
                   <FormField
                     control={form.control}
-                    name="maxRiskPercent"
+                    name="status"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Riesgo Máximo (%)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input type="number" step="0.1" className="pr-8" {...field} value={field.value || ''} />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                          </div>
-                        </FormControl>
-                        <FormDescription>Límite superior.</FormDescription>
+                        <FormLabel>Estado</FormLabel>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            if (val === 'Real' || val === 'Funded') {
+                              form.setValue('baseRiskPercent', 0.25);
+                              form.setValue('maxRiskPercent', 1.0);
+                              form.setValue('lossMultiplier', 1.0);
+                              form.setValue('enableEquityScaling', false);
+                            } else if (val === 'Evaluation') {
+                              form.setValue('baseRiskPercent', 0.55);
+                              form.setValue('maxRiskPercent', 2.8);
+                              form.setValue('lossMultiplier', 1.2);
+                              form.setValue('enableEquityScaling', true);
+                            }
+                          }}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Estado actual" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectItem value="Evaluation">Evaluación</SelectItem>
+                              <SelectItem value="Funded">Fondeada ✅</SelectItem>
+                              <SelectItem value="Payout">Payout pendiente 💰</SelectItem>
+                              <SelectItem value="Blown">Quemada ❌</SelectItem>
+                              <SelectItem value="Real">Real (Personal) 🏦</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-              </div>
 
-              {/* Campos de Evaluación condicionales */}
-              {form.watch('status') === 'Evaluation' && (
-                <div className="flex flex-col gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="size-4 text-indigo-500" />
-                    <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                <div className={form.watch('status') === 'Real' ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
+                  {/* Costo */}
+                  {form.watch('status') !== 'Real' && (
                     <FormField
                       control={form.control}
-                      name="targetProfitPercentage"
+                      name="cost"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Objetivo Profit Fase 1 (%)</FormLabel>
+                          <FormLabel>Costo de Compra (USD)</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="49.00"
+                                className="pl-9"
+                                {...field}
+                              />
                             </div>
                           </FormControl>
+                          <FormDescription>Lo que pagaste por la evaluación.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="maxDrawdownPercentage"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Drawdown Fase 1 (%)</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {(form.watch('totalPhases') || 1) >= 2 && (
-                    <>
-                      <div className="flex items-center gap-2 mt-2">
-                        <TrendingUp className="size-4 text-indigo-400" />
-                        <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 2</h5>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="targetProfitPercentagePhase2"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Objetivo Profit Fase 2 (%)</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="maxDrawdownPercentagePhase2"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Max Drawdown Fase 2 (%)</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </>
                   )}
 
+                  {/* Balance Inicial */}
+                  <FormField
+                    control={form.control}
+                    name="startingBalance"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Balance de la Cuenta</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                            <Input
+                              type="number"
+                              step="1000"
+                              placeholder="50000"
+                              className="pl-9"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormDescription>Tamaño de la cuenta (ej. 50,000).</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Profit Split */}
+                  {form.watch('status') !== 'Real' && (
+                    <FormField
+                      control={form.control}
+                      name="profitSplit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Profit Split (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" min="0" max="100" className="pr-8" {...field} value={field.value || ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>Tu % de ganancias.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+
+                {/* Campos de Gestión de Riesgo */}
+                <div className="flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Layers className="size-4 text-slate-500" />
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
+                  </div>
+
+                  {(form.watch('status') === 'Real' || form.watch('status') === 'Funded') && (
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 rounded-lg flex items-start gap-3">
+                      <Info className="size-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-sm text-amber-800 dark:text-amber-400">
+                        <strong>Recomendación Institucional:</strong> Al ser una cuenta sin meta de profit, tu objetivo es la supervivencia a largo plazo. Hemos pre-llenado parámetros <strong>muy conservadores</strong> para proteger tu capital.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 mb-1">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Perfiles de Riesgo Rápidos</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex flex-col items-center justify-center p-2 h-auto border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20 transition-colors"
+                        onClick={() => {
+                          form.setValue('baseRiskPercent', 0.6);
+                          form.setValue('lossMultiplier', 1.1);
+                        }}
+                      >
+                        <span className="text-emerald-600 dark:text-emerald-500 font-bold text-xs">Conservador</span>
+                        <span className="text-[10px] text-slate-500 font-medium">0.6% | 1.1x</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex flex-col items-center justify-center p-2 h-auto border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:border-blue-900/50 dark:hover:bg-blue-900/20 transition-colors"
+                        onClick={() => {
+                          form.setValue('baseRiskPercent', 0.7);
+                          form.setValue('lossMultiplier', 1.2);
+                        }}
+                      >
+                        <span className="text-blue-600 dark:text-blue-500 font-bold text-xs">Medio</span>
+                        <span className="text-[10px] text-slate-500 font-medium">0.7% | 1.2x</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex flex-col items-center justify-center p-2 h-auto border-purple-200 hover:border-purple-400 hover:bg-purple-50 dark:border-purple-900/50 dark:hover:bg-purple-900/20 transition-colors"
+                        onClick={() => {
+                          form.setValue('baseRiskPercent', 0.8);
+                          form.setValue('lossMultiplier', 1.5);
+                        }}
+                      >
+                        <span className="text-purple-600 dark:text-purple-500 font-bold text-xs">Agresivo</span>
+                        <span className="text-[10px] text-slate-500 font-medium">0.8% | 1.5x</span>
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="phase"
+                      name="baseRiskPercent"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Fase Actual</FormLabel>
+                          <FormLabel>Riesgo Base (%)</FormLabel>
                           <FormControl>
-                            <Input type="number" min="1" {...field} value={field.value || ''} />
+                            <div className="relative">
+                              <Input type="number" step="0.01" className="pr-8" {...field} value={field.value || ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
                           </FormControl>
+                          <FormDescription>Porcentaje por defecto.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <FormField
                       control={form.control}
-                      name="totalPhases"
+                      name="lossMultiplier"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Total de Fases</FormLabel>
+                          <FormLabel>Multiplicador</FormLabel>
                           <FormControl>
-                            <Input type="number" min="1" {...field} value={field.value || ''} />
+                            <div className="relative">
+                              <Input type="number" step="0.01" className="pr-8" {...field} value={field.value || ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">x</span>
+                            </div>
                           </FormControl>
+                          <FormDescription>Incremento tras pérdida.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <FormField
+                      control={form.control}
+                      name="enableEquityScaling"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 p-3 shadow-sm bg-white dark:bg-slate-900/50">
+                          <div className="space-y-0.5">
+                            <FormLabel>Escalamiento (Buffer)</FormLabel>
+                            <FormDescription>
+                              Sube riesgo al estar en profit.
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="maxRiskPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Riesgo Máximo (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" step="0.1" className="pr-8" {...field} value={field.value || ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>Límite superior.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
                 </div>
-              )}
-            </div>
+
+                {/* Campos de Evaluación condicionales */}
+                {form.watch('status') === 'Evaluation' && (
+                  <div className="flex flex-col gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="size-4 text-indigo-500" />
+                      <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="targetProfitPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Objetivo Profit Fase 1 (%)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="maxDrawdownPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Drawdown Fase 1 (%)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {(form.watch('totalPhases') || 1) >= 2 && (
+                      <>
+                        <div className="flex items-center gap-2 mt-2">
+                          <TrendingUp className="size-4 text-indigo-400" />
+                          <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 2</h5>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="targetProfitPercentagePhase2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Objetivo Profit Fase 2 (%)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="maxDrawdownPercentagePhase2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Max Drawdown Fase 2 (%)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="phase"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fase Actual</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="1" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="totalPhases"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Total de Fases</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="1" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
 
             <Separator />
 

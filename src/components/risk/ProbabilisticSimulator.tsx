@@ -175,7 +175,7 @@ export function ProbabilisticSimulator() {
             Proyección Probabilística
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[1300px] w-[95vw] max-h-[95vh] overflow-hidden p-0 bg-slate-50 dark:bg-slate-950">
+        <DialogContent className="sm:max-w-[1300px] w-[95vw] max-h-[95vh] overflow-hidden p-0 bg-slate-50 dark:bg-slate-950" onPointerDownOutside={(e) => e.preventDefault()}>
           <ScrollArea className="h-[90vh] p-6">
             <Tabs defaultValue="lab" className="w-full pr-3">
               <div className="flex justify-between items-start mb-4">
@@ -726,6 +726,20 @@ export function ProbabilisticSimulator() {
                 <p>
                   Antes, hacer backtest era como jugar una partida de un videojuego una sola vez y decir: <em>"¡Terminé con $15,000, siempre ganaré eso!"</em>. Pero el mercado es travieso. El Monte Carlo crea <strong>cientos de universos paralelos</strong>. En cada universo, juegas las mismas operaciones, pero el "orden" de las victorias y derrotas cambia por pura suerte. Al final, junta las historias de todos los universos y te dice la gran verdad.
                 </p>
+              </div>
+
+              <div className="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                <h4 className="font-bold text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5 mb-2">
+                  <span className="text-lg">🔮</span> El Multiverso de las Bolitas Mágicas
+                </h4>
+                <p className="mb-2 text-indigo-900/80 dark:text-indigo-100/70">
+                  Imagina que tienes una bolsa de tela oscura con <strong>100 bolitas</strong> adentro. Si tu Winrate es del 40%, metemos 40 bolitas verdes (ganadoras) y 60 rojas (perdedoras).
+                </p>
+                <ul className="space-y-2 list-decimal list-inside marker:text-indigo-500/70 text-indigo-900/80 dark:text-indigo-100/70">
+                  <li><strong>Un Universo:</strong> Sacas 100 bolitas al azar, calculas el dinero y ves cómo terminaste. Puede que por pura suerte hayas sacado muchas verdes al principio, o puras rojas.</li>
+                  <li><strong>El Multiverso:</strong> El simulador crea <strong>1,000 clones de ti</strong>. Cada clon saca 100 bolitas al azar. Cada clon tendrá una historia distinta.</li>
+                  <li><strong>La Gran Verdad:</strong> Al final, juntamos a tus 1,000 clones. Si 150 clones quebraron su cuenta, tu Probabilidad de Ruina es del 15%.</li>
+                </ul>
               </div>
 
               <div>

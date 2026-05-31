@@ -106,7 +106,7 @@ export function CreateWithdrawalDialog() {
           Registrar Retiro
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Registrar Payout / Retiro</DialogTitle>
           <DialogDescription>
