@@ -42,6 +42,7 @@ export default function AccountDetail() {
     winRate,
     phaseTrades,
     totalNetWithdrawals,
+    netAccountProfit,
     maxLossStreak,
     maxWinStreak,
     avgLoss,
@@ -302,7 +303,7 @@ export default function AccountDetail() {
                 <CardDescription>Resumen de costos de cuenta, retiros y pnl final.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                   <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
                     <span className="text-slate-400 block text-[10px] uppercase font-semibold">Balance Inicial</span>
                     <strong className="text-sm font-extrabold text-slate-750 dark:text-slate-200">
@@ -334,7 +335,13 @@ export default function AccountDetail() {
                     </strong>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">PnL Neto</span>
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Beneficio Neto</span>
+                    <strong className={cn("text-sm font-extrabold", netAccountProfit >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                      {netAccountProfit >= 0 ? '+' : ''}${netAccountProfit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-100/80 dark:border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">PnL Operativo</span>
                     <strong className={cn("text-sm font-extrabold", pnlNeto >= 0 ? "text-emerald-500" : "text-rose-500")}>
                       {pnlNeto >= 0 ? '+' : ''}${pnlNeto.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                     </strong>

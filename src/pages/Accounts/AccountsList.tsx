@@ -6,19 +6,32 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Account } from '@/types';
 
 export default function AccountsList() {
-  const { data: accounts = [], isLoading: loading } = useAccounts();
+  const { data: accounts = [], isLoading: accountsLoading } = useAccounts();
+  const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals();
+
+  const loading = accountsLoading || withdrawalsLoading;
+
+  const getAccountNetWithdrawals = (account: Account) => {
+    const accWithdrawals = withdrawals.filter(w => w.accountId === account.id);
+    return accWithdrawals.reduce((acc, w) => {
+      if (w.netAmount !== undefined) {
+        return acc + w.netAmount;
+      }
+      const split = account.status === 'Real' ? 100 : (account.profitSplit ?? 100);
+      return acc + (w.amount * split / 100);
+    }, 0);
+  };
 
   const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
   const totalWithdrawals = accounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
 
-  const totalNetWithdrawals = accounts.reduce((acc, curr) => {
-    const split = curr.status === 'Real' ? 100 : (curr.profitSplit ?? 100);
-    const net = curr.totalWithdrawals * split / 100;
-    return acc + net;
+  const totalNetWithdrawals = accounts.reduce((acc, account) => {
+    return acc + getAccountNetWithdrawals(account);
   }, 0);
 
   const netProfit = totalNetWithdrawals - totalCost;
@@ -69,7 +82,7 @@ export default function AccountsList() {
             <div className="flex justify-between text-sm">
               <span className="text-slate-500 dark:text-slate-400">Retiros (Neto)</span>
               <span className="font-semibold text-emerald-500">
-                ${(account.totalWithdrawals * (account.status === 'Real' ? 100 : (account.profitSplit ?? 100)) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${getAccountNetWithdrawals(account).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between text-sm">

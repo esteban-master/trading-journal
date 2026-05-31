@@ -40,6 +40,7 @@ interface AccountDetailState {
   maxVal: number;
   roi: string;
   totalNetWithdrawals: number;
+  netAccountProfit: number;
   assetsArray: AssetMetric[];
 
   // Actions
@@ -70,6 +71,7 @@ const computeMetrics = (account: Account | null, trades: Trade[], withdrawals: W
       maxVal: 0,
       roi: '0.0',
       totalNetWithdrawals: 0,
+      netAccountProfit: 0,
       assetsArray: [],
     };
   }
@@ -98,8 +100,8 @@ const computeMetrics = (account: Account | null, trades: Trade[], withdrawals: W
     return acc.plus(new Decimal(w.netAmount || (w.amount * split / 100) || 0));
   }, new Decimal(0)).toNumber();
 
-  const costOrOne = account.cost > 0 ? account.cost : 1;
-  const roi = ((totalNetWithdrawals / costOrOne) * 100).toFixed(1);
+  const netAccountProfit = totalNetWithdrawals - (account.cost || 0);
+  const roi = account.cost > 0 ? ((netAccountProfit / account.cost) * 100).toFixed(1) : '0.0';
 
   const currentBalanceDecimal = new Decimal(account.startingBalance).plus(pnlNetoDecimal).minus(withdrawalsTotalDecimal);
   const currentBalance = currentBalanceDecimal.toNumber();
@@ -211,6 +213,7 @@ const computeMetrics = (account: Account | null, trades: Trade[], withdrawals: W
     maxVal,
     roi,
     totalNetWithdrawals,
+    netAccountProfit,
     assetsArray,
   };
 };
@@ -241,6 +244,7 @@ export const useAccountDetailStore = create<AccountDetailState>((set, get) => ({
   maxVal: 0,
   roi: '0.0',
   totalNetWithdrawals: 0,
+  netAccountProfit: 0,
   assetsArray: [],
 
   setAccountData: (account, trades, withdrawals, viewPhase) => {
