@@ -53,8 +53,8 @@ export default function AccountDetail() {
   const { data: withdrawals = [], isLoading: withdrawalsLoading } = useWithdrawals(id);
 
   useEffect(() => {
-    if (account && account.phase) {
-      setAccountData(account, trades, withdrawals, account.phase);
+    if (account) {
+      setAccountData(account, trades, withdrawals, account.phase || 1);
     }
   }, [account?.id, trades.length, withdrawals.length])
 

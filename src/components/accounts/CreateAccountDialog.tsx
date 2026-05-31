@@ -3,7 +3,7 @@ import { Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers } from 'lucide-react'
+import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info } from 'lucide-react'
 import { useCreateAccount } from '@/hooks/useAccounts'
 import {
   Dialog,
@@ -253,7 +253,23 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Estado</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select 
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          if (val === 'Real' || val === 'Funded') {
+                            form.setValue('baseRiskPercent', 0.25);
+                            form.setValue('maxRiskPercent', 1.0);
+                            form.setValue('lossMultiplier', 1.0);
+                            form.setValue('enableEquityScaling', false);
+                          } else if (val === 'Evaluation') {
+                            form.setValue('baseRiskPercent', 0.55);
+                            form.setValue('maxRiskPercent', 2.8);
+                            form.setValue('lossMultiplier', 1.2);
+                            form.setValue('enableEquityScaling', true);
+                          }
+                        }} 
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Estado actual" />
@@ -356,6 +372,16 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   <Layers className="size-4 text-slate-500" />
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
                 </div>
+                
+                {(form.watch('status') === 'Real' || form.watch('status') === 'Funded') && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 rounded-lg flex items-start gap-3">
+                    <Info className="size-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800 dark:text-amber-400">
+                      <strong>Recomendación Institucional:</strong> Al ser una cuenta sin meta de profit, tu objetivo es la supervivencia a largo plazo. Hemos pre-llenado parámetros <strong>muy conservadores</strong> para proteger tu capital.
+                    </p>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
