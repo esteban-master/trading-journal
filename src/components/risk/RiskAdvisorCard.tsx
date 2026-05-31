@@ -142,6 +142,8 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
             <span>Base: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.baseRiskPercent}%</strong></span>
             <span>•</span>
             <span>Máx: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.maxRiskPercent}%</strong></span>
+            <span>•</span>
+            <span>Mult: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.lossMultiplier}x</strong></span>
           </div>
         </div>
       </div>

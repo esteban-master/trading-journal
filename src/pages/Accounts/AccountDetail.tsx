@@ -56,7 +56,7 @@ export default function AccountDetail() {
     if (account) {
       setAccountData(account, trades, withdrawals, account.phase || 1);
     }
-  }, [account?.id, trades.length, withdrawals.length])
+  }, [account?.id, account?.phase, trades.length, withdrawals.length])
 
 
   const loading = accountLoading || tradesLoading || withdrawalsLoading;
