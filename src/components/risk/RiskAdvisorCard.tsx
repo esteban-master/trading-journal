@@ -6,6 +6,7 @@ import { calculateNextRisk, calculateConsecutiveLosses } from '@/lib/risk';
 import { Trade } from '@/types';
 import { RiskExplanationModal } from './RiskExplanationModal';
 import { RiskPlaygroundModal } from './RiskPlaygroundModal';
+import { ProbabilisticSimulator } from './ProbabilisticSimulator';
 
 interface RiskAdvisorCardProps {
   trades: Trade[];
@@ -148,12 +149,15 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
           </div>
         </div>
 
-        <RiskPlaygroundModal 
-          trades={trades} 
-          account={account} 
-          activeSettings={activeSettings} 
-          avgRR={avgRR} 
-        />
+        <div className="flex flex-col gap-2 mt-4">
+          <RiskPlaygroundModal 
+            trades={trades} 
+            account={account} 
+            activeSettings={activeSettings} 
+            avgRR={avgRR} 
+          />
+          <ProbabilisticSimulator />
+        </div>
       </div>
     </div>
   );
