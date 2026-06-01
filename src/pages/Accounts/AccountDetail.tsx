@@ -135,7 +135,7 @@ export default function AccountDetail() {
         <div className="flex items-center gap-3">
           <EditAccountDialog account={account} />
           {/* Phase Selector Tabs */}
-          {account.status !== 'Real' && <AccountPhaseSelector account={account} />}
+          {account.status !== 'Real' && <AccountPhaseSelector />}
         </div>
       </div>
 

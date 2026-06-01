@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart'
 import { cn } from '@/lib/utils'
+import CreateTradeDialog from "@/components/trades/CreateTradeDialog"
 
 export default function Dashboard() {
   const [hoveredMetric, setHoveredMetric] = useState<string | null>(null)
@@ -874,13 +875,7 @@ export default function Dashboard() {
                   Listado con el detalle del P&L de tus últimas posiciones en mercado.
                 </CardDescription>
               </div>
-              <Link
-                to="/trades/new"
-                className="flex items-center gap-1 bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-bold transition-all hover:bg-indigo-500 shadow-sm cursor-pointer animate-in fade-in duration-300"
-              >
-                <Plus className="size-3.5" />
-                Registrar Trade
-              </Link>
+              <CreateTradeDialog />
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">

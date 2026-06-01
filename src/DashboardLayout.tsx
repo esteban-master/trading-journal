@@ -1,11 +1,8 @@
-import { Outlet, Link } from 'react-router'
-
+import { Outlet } from 'react-router'
 import { AppSidebar } from './components/app-sidebar'
-
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import { cn } from './lib/utils'
-import { buttonVariants } from './components/ui/button'
 import { ModeToggle } from './mode-toggle'
+import CreateTradeDialog from './components/trades/CreateTradeDialog'
 
 
 export default function DashboardLayout() {
@@ -25,7 +22,7 @@ export default function DashboardLayout() {
             <div className="flex-1"></div>
 
             <div className="flex items-center gap-4">
-              <Link to="/trades/new" className={cn(buttonVariants())}>+ Nuevo Trade</Link>
+              <CreateTradeDialog />
             </div>
             <div className='ml-4'>
               <ModeToggle />

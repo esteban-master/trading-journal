@@ -1,4 +1,4 @@
-import { Home, Inbox, Wallet, LogOut, ChevronsUpDown } from 'lucide-react'
+import { Home, Wallet, LogOut, ChevronsUpDown } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/config/firebase'
@@ -36,11 +36,6 @@ const items = [
     title: 'Mis Cuentas',
     url: '/accounts',
     icon: Wallet
-  },
-  {
-    title: 'Registrar Trade',
-    url: '/trades/new',
-    icon: Inbox
   },
   // {
   //   title: 'Calendario',

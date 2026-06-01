@@ -30,7 +30,7 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
           <span className="sr-only">Ver Detalles</span>
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 flex flex-col">
         <SheetHeader className="p-6 border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
           <div className="flex items-center justify-between gap-4">
             <div>

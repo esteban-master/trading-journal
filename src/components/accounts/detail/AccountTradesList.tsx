@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { ColumnDef, ColumnFiltersState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
 import { Trade } from '../../../types';
-import { Activity, ChevronLeft, ChevronRight, ChevronsUpDown, ExternalLink, ImageIcon, Plus, Search } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, ChevronsUpDown, ExternalLink, ImageIcon, Search } from 'lucide-react';
 import { formatDate } from '@/lib/formatDate';
 import { Badge } from '@/components/ui/badge';
 import { useMemo, useState } from 'react';
@@ -28,12 +28,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Link } from 'react-router';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { TradeDetailsSheet } from '../../trades/TradeDetailsSheet';
+import CreateTradeDialog from '@/components/trades/CreateTradeDialog';
 const columns: ColumnDef<Trade>[] = [
   {
     accessorKey: 'date',
@@ -280,7 +279,7 @@ const columns: ColumnDef<Trade>[] = [
 
 export function TradesList() {
 
-  const { phaseTrades, totalTradesCount, account } = useAccountDetailStore();
+  const { phaseTrades, totalTradesCount } = useAccountDetailStore();
 
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'date', desc: true }
@@ -372,9 +371,7 @@ export function TradesList() {
           <CardTitle className="text-lg">Operaciones Registradas</CardTitle>
           <CardDescription>Visualiza, busca y analiza cada una de tus posiciones en esta cuenta.</CardDescription>
         </div>
-        <Link to={`/trades/new?accountId=${account?.id}`} className={cn(buttonVariants())}>
-          <Plus className="size-4" /> Registrar Trade
-        </Link>
+        <CreateTradeDialog />
       </CardHeader>
       <CardContent>
         {totalTradesCount === 0 ? (

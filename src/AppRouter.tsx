@@ -19,7 +19,6 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 const AccountsList = lazy(() => import('@/pages/Accounts/AccountsList'));
 const AccountDetail = lazy(() => import('@/pages/Accounts/AccountDetail'));
 // const TradingCalendar = lazy(() => import('@/pages/Calendar/TradingCalendar'));
-const TradeForm = lazy(() => import('@/components/trades/TradeForm'));
 // const RiskManager = lazy(() => import('@/components/risk/RiskManager'));
 const Login = lazy(() => import('@/pages/Login'));
 
@@ -42,7 +41,6 @@ function AppRoutes() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/accounts" element={<AccountsList />} />
               <Route path="/accounts/:id" element={<AccountDetail />} />
-              <Route path="/trades/new" element={<TradeForm />} />
               {/* <Route path="/calendar" element={<TradingCalendar />} />
               <Route path="/risk" element={<RiskManager />} /> */}
             </Route>
