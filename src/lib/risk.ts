@@ -21,6 +21,7 @@ export interface TargetProximitySettings {
  * @param currentBalance (Optional) The current account balance
  * @param startingBalance (Optional) The starting account balance
  * @param targetProximity (Optional) Settings to cap risk when near evaluation targets
+ * @param deRiskFactor (Optional) Final multiplier applied to the result (e.g. 0.5 to halve risk after a losing streak). Default 1.
  * @returns Recommended risk percentage rounded to 2 decimal places
  */
 export function calculateNextRisk(
@@ -28,7 +29,8 @@ export function calculateNextRisk(
   settings: RiskProgressionSettings,
   currentBalance?: number,
   startingBalance?: number,
-  targetProximity?: TargetProximitySettings
+  targetProximity?: TargetProximitySettings,
+  deRiskFactor: number = 1
 ): { riskPercent: number; isCappedByTarget: boolean } {
   let consecutiveLosses = 0;
 
@@ -91,6 +93,11 @@ export function calculateNextRisk(
         isCappedByTarget = true;
       }
     }
+  }
+
+  // Apply session de-risk factor (anti-martingale brake) as the very last step.
+  if (deRiskFactor !== 1 && deRiskFactor >= 0) {
+    nextRisk = nextRisk * deRiskFactor;
   }
 
   return {

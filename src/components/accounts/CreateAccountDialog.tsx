@@ -3,7 +3,7 @@ import { Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info } from 'lucide-react'
+import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info, ShieldCheck } from 'lucide-react'
 import { useCreateAccount } from '@/hooks/useAccounts'
 import {
   Dialog,
@@ -68,6 +68,13 @@ const createAccountSchema = z.object({
   lossMultiplier: z.coerce.number().min(1, 'El multiplicador debe ser al menos 1').optional(),
   enableEquityScaling: z.boolean().default(true),
   maxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
+  // Centinela de Riesgo
+  dailyLossLimitPercent: z.coerce.number().min(0).max(100).optional(),
+  maxTradesPerDay: z.coerce.number().min(0).max(100).optional(),
+  maxConsecutiveLossesLockout: z.coerce.number().min(1).max(20).optional(),
+  dailyProfitLockPercent: z.coerce.number().min(0).max(100).optional(),
+  trailingDrawdown: z.boolean().default(true),
+  streakScope: z.enum(['allTrades', 'sameDay']).default('allTrades'),
 })
 
 type CreateAccountValues = z.infer<typeof createAccountSchema>
@@ -104,6 +111,12 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       lossMultiplier: 1.20,
       enableEquityScaling: true,
       maxRiskPercent: 2.80,
+      dailyLossLimitPercent: 2,
+      maxTradesPerDay: 5,
+      maxConsecutiveLossesLockout: 3,
+      dailyProfitLockPercent: 3,
+      trailingDrawdown: true,
+      streakScope: 'allTrades',
     },
   })
 
@@ -130,6 +143,12 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         lossMultiplier: values.lossMultiplier,
         enableEquityScaling: values.enableEquityScaling,
         maxRiskPercent: values.maxRiskPercent,
+        dailyLossLimitPercent: values.dailyLossLimitPercent,
+        maxTradesPerDay: values.maxTradesPerDay,
+        maxConsecutiveLossesLockout: values.maxConsecutiveLossesLockout,
+        dailyProfitLockPercent: values.dailyProfitLockPercent,
+        trailingDrawdown: values.trailingDrawdown,
+        streakScope: values.streakScope,
       })
 
       toast.success('Cuenta creada exitosamente', {
@@ -263,11 +282,19 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                               form.setValue('maxRiskPercent', 1.0);
                               form.setValue('lossMultiplier', 1.0);
                               form.setValue('enableEquityScaling', false);
+                              form.setValue('dailyLossLimitPercent', 1);
+                              form.setValue('maxTradesPerDay', 3);
+                              form.setValue('maxConsecutiveLossesLockout', 2);
+                              form.setValue('dailyProfitLockPercent', 1.5);
                             } else if (val === 'Evaluation') {
                               form.setValue('baseRiskPercent', 0.55);
                               form.setValue('maxRiskPercent', 2.8);
                               form.setValue('lossMultiplier', 1.2);
                               form.setValue('enableEquityScaling', true);
+                              form.setValue('dailyLossLimitPercent', 2);
+                              form.setValue('maxTradesPerDay', 5);
+                              form.setValue('maxConsecutiveLossesLockout', 3);
+                              form.setValue('dailyProfitLockPercent', 3);
                             }
                           }}
                           defaultValue={field.value}
@@ -501,6 +528,128 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                       )}
                     />
                   </div>
+                </div>
+
+                {/* Centinela de Riesgo */}
+                <div className="flex flex-col gap-4 bg-rose-50/40 dark:bg-rose-950/20 p-4 rounded-xl border border-rose-100 dark:border-rose-900/40">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="size-4 text-rose-500" />
+                    <h4 className="text-sm font-semibold text-rose-900 dark:text-rose-300">Centinela de Riesgo</h4>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">
+                    Límites de control en vivo. Tras N pérdidas seguidas se activa el Tilt Guard (control emocional).
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="dailyLossLimitPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Límite Pérdida Diaria (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" step="0.1" className="pr-8" {...field} value={field.value ?? ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>Cierra el día si se supera.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="maxConsecutiveLossesLockout"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SL seguidos → Tilt Guard</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" step="1" {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormDescription>Nº de pérdidas que disparan el aviso.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="streakScope"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Conteo de la racha</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'allTrades'}>
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="allTrades">Por trades (acumulada entre días)</SelectItem>
+                            <SelectItem value="sameDay">Solo del día actual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          "Por trades": cuenta pérdidas seguidas aunque sean en días distintos (ideal para CFDs con 1 trade/día). "Solo del día": reinicia cada jornada.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="maxTradesPerDay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Máx. Trades / Día</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" step="1" {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormDescription>Anti-overtrading.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="dailyProfitLockPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Objetivo Diario (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" step="0.1" className="pr-8" {...field} value={field.value ?? ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>Lock-in del día verde.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="trailingDrawdown"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 p-3 shadow-sm bg-white dark:bg-slate-900/50">
+                        <div className="space-y-0.5">
+                          <FormLabel>Drawdown Trailing</FormLabel>
+                          <FormDescription>
+                            Mide el drawdown desde el pico (trailing) en vez de desde el balance inicial (estático).
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 {/* Campos de Evaluación condicionales */}

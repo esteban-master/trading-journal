@@ -5,10 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import { UploadCloud, X, Loader2, Info, Plus } from 'lucide-react';
+import { UploadCloud, X, Loader2, Info, Plus, Brain } from 'lucide-react';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
+import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
+import { EmotionalState } from '@/types';
 import {
   Form,
   FormControl,
@@ -70,6 +72,15 @@ const DEFAULT_DESCRIPTION_TEMPLATE = `<h1>📈 Contexto Técnico</h1>
 <h3>• Errores a corregir:</h3>
 <p></p>`;
 
+const EMOTION_OPTIONS: { value: EmotionalState; label: string }[] = [
+  { value: 'Calm', label: 'Tranquilo' },
+  { value: 'Confident', label: 'Confiado' },
+  { value: 'Anxious', label: 'Ansioso' },
+  { value: 'FOMO', label: 'FOMO / Urgencia' },
+  { value: 'Revenge', label: 'Revancha' },
+  { value: 'Bored', label: 'Aburrido' },
+];
+
 // ─── Zod Schema ────────────────────────────────────────────────────────────────
 const tradeSchema = z.object({
   accountId: z.string().min(1, 'Selecciona una cuenta'),
@@ -83,6 +94,9 @@ const tradeSchema = z.object({
   riskReward: z.coerce.number({ error: 'Número inválido' }).optional().default(0),
   riskPercent: z.coerce.number({ error: 'Número inválido' }).optional(),
   date: z.string().min(1, 'Selecciona la fecha y hora de la operación'),
+  emotionalState: z.string().optional(),
+  disciplineScore: z.coerce.number().min(1).max(5).optional(),
+  followedPlan: z.boolean().optional(),
 });
 
 type TradeValues = z.infer<typeof tradeSchema>;
@@ -95,7 +109,8 @@ export default function CreateTradeDialog() {
 
   const { data: accounts = [] } = useAccounts();
   const createTradeMutation = useCreateTrade();
-  
+  const getGuardianSession = useRiskGuardianStore((s) => s.getSession);
+
   const [files, setFiles] = useState<File[]>([]);
   const saving = createTradeMutation.isPending;
 
@@ -112,6 +127,9 @@ export default function CreateTradeDialog() {
       description: DEFAULT_DESCRIPTION_TEMPLATE,
       riskReward: 0,
       date: getLocalDateTimeString(),
+      emotionalState: undefined,
+      disciplineScore: 3,
+      followedPlan: true,
     },
   });
 
@@ -132,6 +150,10 @@ export default function CreateTradeDialog() {
 
   const onSubmit = async (values: TradeValues) => {
     try {
+      // Marca como "revancha" si se registra durante un cooldown o lockout activo del Centinela
+      const session = getGuardianSession(values.accountId);
+      const isRevenge = session.manualLockout || (session.cooldownUntil ? session.cooldownUntil > Date.now() : false);
+
       await createTradeMutation.mutateAsync({
         accountId: values.accountId,
         asset: values.asset,
@@ -146,6 +168,10 @@ export default function CreateTradeDialog() {
         images: [], // File upload can be integrated later if needed
         status: 'Closed',
         date: new Date(values.date).toISOString(),
+        emotionalState: values.emotionalState as EmotionalState | undefined,
+        disciplineScore: values.disciplineScore,
+        followedPlan: values.followedPlan,
+        isRevenge,
       });
 
       setOpen(false);
@@ -373,6 +399,111 @@ export default function CreateTradeDialog() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  {/* Psicología y Disciplina */}
+                  <div className="flex flex-col gap-4 bg-rose-50/40 dark:bg-rose-950/20 p-4 rounded-xl border border-rose-100 dark:border-rose-900/40">
+                    <div className="flex items-center gap-2">
+                      <Brain className="size-4 text-rose-500" />
+                      <h4 className="text-sm font-semibold text-rose-900 dark:text-rose-300">Psicología y Disciplina</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Estado emocional */}
+                      <FormField
+                        control={form.control}
+                        name="emotionalState"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Estado emocional</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="¿Cómo te sentías?" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {EMOTION_OPTIONS.map(e => (
+                                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Disciplina 1-5 */}
+                      <FormField
+                        control={form.control}
+                        name="disciplineScore"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              Disciplina (1-5)
+                              <TooltipProvider>
+                                <Tooltip delayDuration={300}>
+                                  <TooltipTrigger asChild>
+                                    <Info className="size-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-[280px] p-3 shadow-lg border-primary/20">
+                                    <p className="text-sm">Califica tu <strong>adherencia al plan</strong>, no el resultado. Un trade perdedor bien ejecutado puede ser un 5.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </FormLabel>
+                            <div className="flex gap-1.5">
+                              {[1, 2, 3, 4, 5].map(n => (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  onClick={() => field.onChange(n)}
+                                  className={`flex-1 h-9 rounded-lg text-sm font-bold border transition-colors ${
+                                    field.value === n
+                                      ? 'bg-indigo-500 text-white border-indigo-500'
+                                      : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                  }`}
+                                >
+                                  {n}
+                                </button>
+                              ))}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* ¿Seguí mi plan? */}
+                      <FormField
+                        control={form.control}
+                        name="followedPlan"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>¿Seguí mi plan?</FormLabel>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={field.value === true ? 'default' : 'outline'}
+                                className={field.value === true ? 'flex-1 bg-emerald-500/10 border-emerald-500 text-emerald-600 hover:bg-emerald-500/20' : 'flex-1'}
+                                onClick={() => field.onChange(true)}
+                              >
+                                Sí
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={field.value === false ? 'default' : 'outline'}
+                                className={field.value === false ? 'flex-1 bg-rose-500/10 border-rose-500 text-rose-600 hover:bg-rose-500/20' : 'flex-1'}
+                                onClick={() => field.onChange(false)}
+                              >
+                                No
+                              </Button>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
 
                   {/* Descripción (Rich Text) */}

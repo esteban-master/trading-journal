@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
-import { AlertTriangle, CheckCircle, TrendingDown } from 'lucide-react';
+import { AlertTriangle, CheckCircle, TrendingDown, Lock, MinusCircle } from 'lucide-react';
 import { useRiskStore } from '@/store/useRiskStore';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
+import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
 import { calculateNextRisk, calculateConsecutiveLosses } from '@/lib/risk';
+import { computeAccountRiskStatus, getDayKey } from '@/lib/riskGuardian';
 import { Trade } from '@/types';
 import { RiskExplanationModal } from './RiskExplanationModal';
 import { RiskPlaygroundModal } from './RiskPlaygroundModal';
@@ -16,7 +18,19 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   const { settings: globalSettings } = useRiskStore();
   const { account, avgRR } = useAccountDetailStore();
 
-  console.log(account)
+  // Estado de sesión del Centinela (de-risk / lockout) válido para hoy
+  const session = useRiskGuardianStore((s) => (account ? s.sessions[account.id] : undefined));
+  const isToday = session?.dayKey === getDayKey(new Date());
+  const deRiskFactor = isToday ? session!.deRiskFactor : 1;
+  const manualLockout = isToday ? session!.manualLockout : false;
+
+  const guardStatus = useMemo(
+    () => (account ? computeAccountRiskStatus(account, trades) : null),
+    [account, trades]
+  );
+  const isLocked = manualLockout || (guardStatus?.lockoutSuggested ?? false);
+  const isDeRisked = deRiskFactor < 1;
+
   const activeSettings = useMemo(() => {
     return {
       baseRiskPercent: account?.baseRiskPercent ?? globalSettings.baseRiskPercent,
@@ -45,9 +59,10 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
         isEvaluation: account?.status === 'Evaluation',
         targetProfitPercentage: account?.targetProfitPercentage,
         averageRR: parseFloat(avgRR) || 0,
-      }
+      },
+      deRiskFactor
     );
-  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance, account?.status, account?.targetProfitPercentage, avgRR]);
+  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance, account?.status, account?.targetProfitPercentage, avgRR, deRiskFactor]);
 
   const recommendedNextRisk = recommendedNextRiskResult.riskPercent;
   const isCappedByTarget = recommendedNextRiskResult.isCappedByTarget;
@@ -105,6 +120,20 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
             {account && <RiskExplanationModal account={account} />}
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Calculado sobre tu racha actual</p>
+          {(isLocked || isDeRisked) && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {isLocked && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                  <Lock className="size-3" /> Bloqueado por el Centinela
+                </span>
+              )}
+              {isDeRisked && !isLocked && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                  <MinusCircle className="size-3" /> De-risk ×{deRiskFactor}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className={`p-3 rounded-xl shadow-inner ${isIncreasedRisk ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'}`}>
           {isIncreasedRisk ? <AlertTriangle size={24} className="animate-pulse" /> : <CheckCircle size={24} />}
@@ -115,15 +144,23 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Riesgo Recomendado</span>
-            {account && typeof account.currentBalance === 'number' && (
-              <span className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-1">
-                Arriesgar: <span className="text-slate-800 dark:text-slate-200">${((account.currentBalance * recommendedNextRisk) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</span>
-              </span>
+            {isLocked ? (
+              <span className="text-xs font-bold text-rose-500 mt-1">Jornada cerrada · sin nuevas operaciones</span>
+            ) : (
+              account && typeof account.currentBalance === 'number' && (
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-1">
+                  Arriesgar: <span className="text-slate-800 dark:text-slate-200">${((account.currentBalance * recommendedNextRisk) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</span>
+                </span>
+              )
             )}
           </div>
-          <span className={`text-3xl font-black tracking-tight ${isIncreasedRisk ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-            {recommendedNextRisk.toFixed(2)}%
-          </span>
+          {isLocked ? (
+            <span className="text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400">No operar</span>
+          ) : (
+            <span className={`text-3xl font-black tracking-tight ${isDeRisked ? 'text-orange-600 dark:text-orange-400' : isIncreasedRisk ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {recommendedNextRisk.toFixed(2)}%
+            </span>
+          )}
         </div>
 
         <div className="flex items-center justify-between px-2">

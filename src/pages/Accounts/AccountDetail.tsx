@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useAccountDetail } from '@/hooks/useAccounts';
 import { useTrades } from '@/hooks/useTrades';
@@ -30,6 +30,11 @@ import { AccountEquityChart } from '../../components/accounts/detail/AccountEqui
 import { AccountOperationsByAsset } from '../../components/accounts/detail/AccountOperationsByAsset';
 import { AccountMetrics } from '../../components/accounts/detail/AccountMetrics';
 import { RiskAdvisorCard } from '@/components/risk/RiskAdvisorCard';
+import { RiskGuardianBar } from '@/components/risk/RiskGuardianBar';
+import { TiltGuardModal } from '@/components/risk/TiltGuardModal';
+import { DisciplineCard } from '@/components/risk/DisciplineCard';
+import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
+import { getDayKey, getCurrentLossStreak } from '@/lib/riskGuardian';
 
 
 export default function AccountDetail() {
@@ -40,6 +45,8 @@ export default function AccountDetail() {
     setAccountData,
     equityPoints,
     winRate,
+    avgRR,
+    viewPhase,
     phaseTrades,
     totalNetWithdrawals,
     netAccountProfit,
@@ -49,6 +56,13 @@ export default function AccountDetail() {
     avgWin,
     roi
   } = useAccountDetailStore();
+
+  const [tiltOpen, setTiltOpen] = useState(false);
+  const lastHandledStreak = useRiskGuardianStore((s) => {
+    if (!id) return 0;
+    const session = s.sessions[id];
+    return session && session.dayKey === getDayKey(new Date()) ? session.lastHandledStreak : 0;
+  });
 
   const { data: account, isLoading: accountLoading, error: accountError } = useAccountDetail(id);
   const { data: tradesData, isLoading: tradesLoading } = useTrades(id);
@@ -62,6 +76,16 @@ export default function AccountDetail() {
       setAccountData(account, trades, withdrawals, account.phase || 1);
     }
   }, [account, tradesData, withdrawalsData, accountLoading, tradesLoading, withdrawalsLoading, setAccountData]);
+
+  // Disparo automático del Tilt Guard ante una racha de pérdidas no atendida
+  useEffect(() => {
+    if (!account) return;
+    const streak = getCurrentLossStreak(account, phaseTrades);
+    const threshold = account.maxConsecutiveLossesLockout ?? 3;
+    if (streak >= threshold && streak > lastHandledStreak) {
+      setTiltOpen(true);
+    }
+  }, [account, phaseTrades, lastHandledStreak]);
 
 
   const loading = accountLoading || tradesLoading || withdrawalsLoading;
@@ -109,6 +133,11 @@ export default function AccountDetail() {
   const isFunded = account.status === 'Funded';
   const isBlown = account.status === 'Blown';
 
+  // Límite de drawdown activo según la fase visualizada (para el Centinela)
+  const activeMaxDrawdown = viewPhase === 2 && account.maxDrawdownPercentagePhase2
+    ? account.maxDrawdownPercentagePhase2
+    : account.maxDrawdownPercentage;
+
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -141,6 +170,27 @@ export default function AccountDetail() {
 
       {/* Panel de Evaluación (Condicional) */}
       {account.status !== 'Real' && <EvaluationPanel account={account} />}
+
+      {/* Centinela de Riesgo: semáforo en vivo */}
+      <RiskGuardianBar
+        account={account}
+        trades={phaseTrades}
+        winRate={winRate}
+        avgRR={parseFloat(avgRR) || 0}
+        maxDrawdownLimitPercent={activeMaxDrawdown}
+        onOpenTiltGuard={() => setTiltOpen(true)}
+      />
+
+      {/* Tilt Guard: control emocional ante rachas */}
+      <TiltGuardModal
+        account={account}
+        trades={phaseTrades}
+        open={tiltOpen}
+        onOpenChange={setTiltOpen}
+        winRate={winRate}
+        avgRR={parseFloat(avgRR) || 0}
+        maxDrawdownLimitPercent={activeMaxDrawdown}
+      />
 
       {/* Grid de Métricas Clave al estilo Dashboard */}
       <AccountMetrics />
@@ -349,6 +399,9 @@ export default function AccountDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Disciplina y Psicología */}
+            <DisciplineCard trades={phaseTrades} />
           </div>
         </TabsContent>
 

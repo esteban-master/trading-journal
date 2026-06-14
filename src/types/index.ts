@@ -27,7 +27,17 @@ export interface Account {
   lossMultiplier?: number;
   enableEquityScaling?: boolean;
   maxRiskPercent?: number;
+
+  // Centinela de Riesgo (intradía / cuenta)
+  dailyLossLimitPercent?: number;        // % del startingBalance que cierra el día
+  maxTradesPerDay?: number;              // anti-overtrading
+  maxConsecutiveLossesLockout?: number;  // N SL que disparan el Tilt Guard (default 3)
+  dailyProfitLockPercent?: number;       // objetivo diario → "lock-in del día verde"
+  trailingDrawdown?: boolean;            // true=trailing, false=static (fondeo)
+  streakScope?: StreakScope;             // cómo contar la racha: 'allTrades' (acumulada) | 'sameDay'
 }
+
+export type StreakScope = 'allTrades' | 'sameDay';
 
 export type TradeDirection = 'Long' | 'Short';
 export type TradeStatus = 'Open' | 'Closed';
@@ -49,7 +59,15 @@ export interface Trade {
   date: string; // ISO date string
   status: TradeStatus;
   phase?: number;
+
+  // Centinela de Riesgo: control emocional / disciplina
+  emotionalState?: EmotionalState; // estado mental al operar
+  disciplineScore?: number;        // 1-5 adherencia al plan (proceso, no resultado)
+  followedPlan?: boolean;          // ¿siguió el plan?
+  isRevenge?: boolean;             // auto-marcado si se registra en cooldown/lockout
 }
+
+export type EmotionalState = 'Calm' | 'Confident' | 'FOMO' | 'Revenge' | 'Anxious' | 'Bored';
 
 export interface Withdrawal {
   id: string;
@@ -60,4 +78,22 @@ export interface Withdrawal {
   profitSplit?: number; // the profit split percentage at the time of withdrawal
   date: string; // ISO date string
   notes?: string;
+}
+
+// --- Centinela de Riesgo ---
+export type RiskEventType = 'tilt_triggered' | 'cooldown' | 'derisk' | 'lockout' | 'override';
+export type StreakVerdict = 'noise' | 'elevated' | 'anomaly';
+export type RiskDecision = 'keep_plan' | 'derisk' | 'lockout';
+
+export interface RiskEvent {
+  id: string;
+  userId: string;
+  accountId: string;
+  type: RiskEventType;
+  dayKey: string;              // bucket de día local (YYYY-MM-DD)
+  consecutiveLosses: number;
+  verdict?: StreakVerdict;
+  emotionNote?: string;
+  decision?: RiskDecision;
+  date: string;                // ISO date string
 }

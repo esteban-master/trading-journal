@@ -41,7 +41,11 @@ const normalizeTrade = (docId: string, data: DocumentData): Trade => {
       ? data.date.toDate().toISOString()
       : data.date ?? new Date().toISOString(),
     status: data.status ?? 'Closed',
-    phase: data.phase
+    phase: data.phase,
+    emotionalState: data.emotionalState,
+    disciplineScore: data.disciplineScore,
+    followedPlan: data.followedPlan,
+    isRevenge: data.isRevenge,
   };
 };
 
@@ -121,6 +125,10 @@ export function useCreateTrade() {
         date: newTrade.date,
         createdAt: Timestamp.fromDate(new Date(newTrade.date)),
         phase: accData.status === 'Evaluation' ? currentPhase : (accData.status === 'Funded' ? 3 : null),
+        emotionalState: newTrade.emotionalState ?? null,
+        disciplineScore: newTrade.disciplineScore ?? null,
+        followedPlan: newTrade.followedPlan ?? null,
+        isRevenge: newTrade.isRevenge ?? null,
       });
 
       // 3. Update account balance using decimal.js
