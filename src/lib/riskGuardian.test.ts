@@ -170,6 +170,12 @@ describe('buildStreakReference', () => {
   it('uses Monte Carlo with enough trades and valid stats', () => {
     expect(buildStreakReference(60, 50, 2, settings, 50000).source).toBe('montecarlo');
   });
+
+  it('is deterministic: same inputs produce the same reference', () => {
+    const a = buildStreakReference(60, 50, 2, settings, 50000);
+    const b = buildStreakReference(60, 50, 2, settings, 50000);
+    expect(a).toEqual(b);
+  });
 });
 
 describe('heuristicStreakReference', () => {

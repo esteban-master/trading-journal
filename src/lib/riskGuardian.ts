@@ -234,6 +234,20 @@ export function heuristicStreakReference(winRatePercent: number, numberOfTrades:
   };
 }
 
+// Parámetros del árbitro estadístico.
+// - 3000 iteraciones: estima bien la cola (p90); el error de un percentil cae como 1/√N,
+//   así que más allá de esto los rendimientos son decrecientes y el veredicto (entero) casi
+//   no cambia.
+// - Semilla fija: hace la simulación DETERMINISTA. Con los mismos winrate/RR/nº de trades el
+//   veredicto es siempre el mismo (no parpadea entre recálculos) → confianza para seguir el plan.
+// - Horizonte acotado: el simulador es O(n²) por iteración (recalcula el riesgo sobre todo el
+//   historial en cada trade), por lo que limitamos n para que el cálculo en vivo sea
+//   instantáneo aunque la cuenta tenga miles de trades. La racha esperada crece solo de forma
+//   logarítmica con n, así que ~300 trades ya da un p90 prácticamente estable.
+const STREAK_REF_ITERATIONS = 3000;
+const STREAK_REF_MAX_TRADES = 300;
+const STREAK_REF_SEED = 1337;
+
 /**
  * Construye la referencia de rachas para el árbitro: corre Monte Carlo si hay datos
  * suficientes (≥20 trades cerrados y winrate/RR válidos), o usa la heurística si no.
@@ -246,7 +260,7 @@ export function buildStreakReference(
   settings: RiskProgressionSettings,
   startingBalance: number
 ): StreakReference {
-  const n = Math.max(50, closedTradesCount);
+  const n = Math.min(STREAK_REF_MAX_TRADES, Math.max(50, closedTradesCount));
   if (closedTradesCount < 20 || winRate <= 0 || winRate >= 100 || avgRR <= 0) {
     return heuristicStreakReference(winRate > 0 ? winRate : 50, n);
   }
@@ -254,9 +268,10 @@ export function buildStreakReference(
     winRate,
     riskRewardRatio: avgRR,
     numberOfTrades: n,
-    iterations: 1000,
+    iterations: STREAK_REF_ITERATIONS,
     settings,
     startingBalance,
+    seed: STREAK_REF_SEED,
   });
   return streakReferenceFromSummary(sim.summary);
 }

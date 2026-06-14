@@ -10,6 +10,7 @@ export interface SimulatorParams {
   startingBalance: number;
   iterations?: number;
   commissionPerTrade?: number;
+  seed?: number; // si se define, la simulación es determinista y reproducible
 }
 
 export interface SimulationSummary {
@@ -50,6 +51,18 @@ function getPercentile(arr: number[], q: number) {
   }
 }
 
+// PRNG determinista (mulberry32). Devuelve un generador de números en [0, 1).
+// Permite reproducir exactamente la misma simulación con la misma semilla.
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function runMonteCarloSimulation({
   winRate,
   riskRewardRatio,
@@ -58,9 +71,12 @@ export function runMonteCarloSimulation({
   startingBalance,
   iterations = 500,
   commissionPerTrade = 0,
+  seed,
 }: SimulatorParams): SimulationResult {
-  
-  
+
+  // RNG determinista si hay semilla; si no, aleatorio normal (Math.random)
+  const rng: () => number = seed !== undefined ? mulberry32(seed) : Math.random;
+
   // Array to hold the full balance path for each iteration
   // iterationPaths[i][t] = balance for iteration i at trade t
   const iterationPaths: number[][] = [];
@@ -114,7 +130,7 @@ export function runMonteCarloSimulation({
       const dollarRisk = currentBalance * (riskResult.riskPercent / 100);
 
       // Roll the dice!
-      const isWin = Math.random() * 100 <= winRate;
+      const isWin = rng() * 100 <= winRate;
 
       let pnl = 0;
       if (isWin) {
@@ -223,7 +239,7 @@ export function runMonteCarloSimulation({
   const samplePaths = [];
   const maxSamples = Math.min(20, iterations);
   for(let i=0; i<maxSamples; i++) {
-    const pIdx = Math.floor(Math.random() * iterations);
+    const pIdx = Math.floor(rng() * iterations);
     const data = iterationPaths[pIdx].map((bal, t) => ({
       name: t === 0 ? 'Inicio' : `T${t}`,
       balance: bal
