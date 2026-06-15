@@ -7,7 +7,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, TrendingUp, TrendingDown, Crosshair, Target, Activity, Image as ImageIcon } from 'lucide-react';
+import { Eye, Calendar, TrendingUp, TrendingDown, Crosshair, Target, Activity, Image as ImageIcon, Brain, Flame } from 'lucide-react';
 import { Trade } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -17,6 +17,15 @@ import { cn } from '@/lib/utils';
 interface TradeDetailsSheetProps {
   trade: Trade;
 }
+
+const EMOTION_META: Record<string, { label: string; cls: string }> = {
+  Calm: { label: 'Tranquilo', cls: 'text-emerald-500' },
+  Confident: { label: 'Confiado', cls: 'text-sky-500' },
+  Anxious: { label: 'Ansioso', cls: 'text-amber-500' },
+  FOMO: { label: 'FOMO / Urgencia', cls: 'text-amber-500' },
+  Revenge: { label: 'Revancha', cls: 'text-rose-500' },
+  Bored: { label: 'Aburrido', cls: 'text-slate-500' },
+};
 
 export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
   const isLong = trade.direction === 'Long';
@@ -85,6 +94,64 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
           </div>
 
           <Separator />
+
+          {/* Psicología y Disciplina */}
+          {(trade.emotionalState || typeof trade.disciplineScore === 'number' || typeof trade.followedPlan === 'boolean' || trade.isRevenge) && (
+            <>
+              <div className="flex flex-col gap-4">
+                <h4 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
+                  <Brain className="size-4" /> Psicología y Disciplina
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {trade.emotionalState && (
+                    <div className="flex flex-col gap-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border">
+                      <span className="text-xs font-semibold text-muted-foreground">Estado emocional</span>
+                      <span className={cn('font-bold', EMOTION_META[trade.emotionalState]?.cls)}>
+                        {EMOTION_META[trade.emotionalState]?.label ?? trade.emotionalState}
+                      </span>
+                    </div>
+                  )}
+                  {typeof trade.disciplineScore === 'number' && (
+                    <div className="flex flex-col gap-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border">
+                      <span className="text-xs font-semibold text-muted-foreground">Disciplina</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">{trade.disciplineScore} / 5</span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <span
+                              key={n}
+                              className={cn(
+                                'w-2 h-2 rounded-full',
+                                n <= trade.disciplineScore! ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {typeof trade.followedPlan === 'boolean' && (
+                    <div className="flex flex-col gap-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border">
+                      <span className="text-xs font-semibold text-muted-foreground">¿Siguió el plan?</span>
+                      <span className={cn('font-bold', trade.followedPlan ? 'text-emerald-500' : 'text-rose-500')}>
+                        {trade.followedPlan ? 'Sí' : 'No'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {trade.isRevenge && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300">
+                    <Flame className="size-4 shrink-0" />
+                    <span className="text-sm font-semibold">
+                      Trade de revancha — registrado durante un cooldown o día bloqueado del Centinela.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+            </>
+          )}
 
           {/* Estrategia y Descripción */}
           <div className="flex flex-col gap-4">
