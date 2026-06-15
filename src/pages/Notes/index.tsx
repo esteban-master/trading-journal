@@ -7,11 +7,9 @@ import {
   Search,
   BookOpen,
   Bell,
-  Sparkles,
   Youtube,
   Pencil,
   Trash2,
-  Loader2,
   Power,
 } from 'lucide-react';
 
@@ -20,7 +18,6 @@ import { useNoteCategories } from '@/hooks/useNoteCategories';
 import { useNoteSources } from '@/hooks/useNoteSources';
 import { useNotes } from '@/hooks/useNotes';
 import { useReminders, useUpdateReminder, useDeleteReminder } from '@/hooks/useReminders';
-import { useSeedApuntes } from '@/lib/seedApuntes';
 import { stripHtml, getYouTubeThumbnail } from '@/lib/markdownImport';
 import { REMINDER_TRIGGER_LABEL, SOURCE_TYPE_LABEL } from '@/lib/apuntes';
 import { cn } from '@/lib/utils';
@@ -204,7 +201,6 @@ export default function NotesPage() {
         {/* ───────── Fuentes ───────── */}
         <TabsContent value="fuentes" className="mt-4 flex flex-col gap-4">
           <div className="flex flex-wrap justify-end gap-2">
-            <SeedButton />
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="size-4" />
               Importar
@@ -327,24 +323,6 @@ export default function NotesPage() {
         sources={sources}
       />
     </div>
-  );
-}
-
-function SeedButton() {
-  const seed = useSeedApuntes();
-  const handleSeed = async () => {
-    try {
-      const res = await seed.mutateAsync();
-      toast.success(res.skipped ? 'El ejemplo ya estaba cargado' : 'Ejemplo cargado: "Cómo lidiar con la pérdida"');
-    } catch {
-      toast.error('No se pudo cargar el ejemplo');
-    }
-  };
-  return (
-    <Button variant="outline" onClick={handleSeed} disabled={seed.isPending}>
-      {seed.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-      Cargar ejemplo
-    </Button>
   );
 }
 
