@@ -5,7 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import { UploadCloud, X, Loader2, Info, Plus, Brain, ShieldAlert, Lock } from 'lucide-react';
+import { UploadCloud, X, Loader2, Info, Plus, Brain, ShieldAlert, Lock, BookOpen } from 'lucide-react';
+import { useReminders } from '@/hooks/useReminders';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
@@ -115,7 +116,12 @@ export default function CreateTradeDialog() {
   const createTradeMutation = useCreateTrade();
   const getGuardianSession = useRiskGuardianStore((s) => s.getSession);
 
+  const { data: beforeTradeReminders = [] } = useReminders({ trigger: 'beforeTrade', onlyActive: true });
+  const { data: afterLossReminders = [] } = useReminders({ trigger: 'afterLoss', onlyActive: true });
+
   const [files, setFiles] = useState<File[]>([]);
+  const [showAfterLoss, setShowAfterLoss] = useState(false);
+  const [afterLossAccountId, setAfterLossAccountId] = useState('');
   const saving = createTradeMutation.isPending;
 
   const form = useForm<TradeValues>({
@@ -221,19 +227,39 @@ export default function CreateTradeDialog() {
         isRevenge,
       });
 
-      setOpen(false);
       form.reset();
       setFiles([]);
       toast.success('Trade registrado exitosamente');
-      navigate(`/accounts/${values.accountId}`);
+
+      if (values.pnl < 0 && afterLossReminders.length > 0) {
+        setAfterLossAccountId(values.accountId);
+        setShowAfterLoss(true);
+      } else {
+        setOpen(false);
+        navigate(`/accounts/${values.accountId}`);
+      }
     } catch (err) {
       console.error('Error saving trade:', err);
       toast.error('Error al guardar el trade');
     }
   };
 
+  const handleAfterLossDismiss = () => {
+    setShowAfterLoss(false);
+    setOpen(false);
+    navigate(`/accounts/${afterLossAccountId}`);
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setShowAfterLoss(false);
+      setAfterLossAccountId('');
+    }
+    setOpen(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus data-icon="inline-start" />
@@ -247,6 +273,28 @@ export default function CreateTradeDialog() {
             Añade los detalles de tu operación y adjunta capturas de pantalla.
           </DialogDescription>
         </DialogHeader>
+        {showAfterLoss ? (
+          <div className="flex flex-col gap-5 py-2">
+            <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 p-4">
+              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-indigo-900 dark:text-indigo-300 mb-3">
+                <BookOpen className="size-4" /> Antes de seguir — recuerda esto
+              </h4>
+              <ul className="space-y-2">
+                {afterLossReminders.map((r) => (
+                  <li key={r.id} className="text-sm text-slate-700 dark:text-slate-200">
+                    <span className="font-medium">{r.title}</span>
+                    {r.detail && <span className="block text-xs text-slate-500 dark:text-slate-400">{r.detail}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleAfterLossDismiss} className="bg-indigo-600 text-white hover:bg-indigo-500">
+                Entendido
+              </Button>
+            </div>
+          </div>
+        ) : (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1 ">
               {isBlocked && (
@@ -275,6 +323,21 @@ export default function CreateTradeDialog() {
                       ⚠ Anulado: este trade se guardará marcado como “revancha”.
                     </span>
                   )}
+                </div>
+              )}
+              {beforeTradeReminders.length > 0 && (
+                <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 p-4">
+                  <h4 className="flex items-center gap-1.5 text-sm font-semibold text-indigo-900 dark:text-indigo-300 mb-2">
+                    <BookOpen className="size-4" /> Checklist antes de operar
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {beforeTradeReminders.map((r) => (
+                      <li key={r.id} className="text-sm text-slate-700 dark:text-slate-200">
+                        <span className="font-medium">{r.title}</span>
+                        {r.detail && <span className="block text-xs text-slate-500 dark:text-slate-400">{r.detail}</span>}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               <ScrollArea className="h-[55vh] md:h-[60vh] pr-3">
@@ -738,6 +801,7 @@ export default function CreateTradeDialog() {
               </div>
             </form>
           </Form>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -15,7 +15,9 @@ import {
   Coins,
   Briefcase,
   Landmark,
+  BookOpen,
 } from 'lucide-react';
+import { useReminders } from '@/hooks/useReminders';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -58,6 +60,7 @@ export default function AccountDetail() {
   } = useAccountDetailStore();
 
   const [tiltOpen, setTiltOpen] = useState(false);
+  const { data: greenDayReminders = [] } = useReminders({ trigger: 'greenDay', onlyActive: true });
   const lastHandledStreak = useRiskGuardianStore((s) => {
     if (!id) return 0;
     const session = s.sessions[id];
@@ -191,6 +194,32 @@ export default function AccountDetail() {
         avgRR={parseFloat(avgRR) || 0}
         maxDrawdownLimitPercent={activeMaxDrawdown}
       />
+
+      {/* Green Day: recordatorios cuando se alcanza el objetivo diario */}
+      {(() => {
+        if (!greenDayReminders.length || !account.dailyProfitLockPercent || account.startingBalance <= 0) return null;
+        const todayKey = getDayKey(new Date());
+        const todayPnl = phaseTrades
+          .filter((t) => getDayKey(t.date) === todayKey)
+          .reduce((acc, t) => acc + t.pnl, 0);
+        const profitLockReached = (todayPnl / account.startingBalance) * 100 >= account.dailyProfitLockPercent;
+        if (!profitLockReached || todayPnl <= 0) return null;
+        return (
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-4">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900 dark:text-emerald-300 mb-2">
+              <BookOpen className="size-4" /> Día verde — protege lo ganado
+            </h4>
+            <ul className="space-y-1.5">
+              {greenDayReminders.map((r) => (
+                <li key={r.id} className="text-sm text-slate-700 dark:text-slate-200">
+                  <span className="font-medium">{r.title}</span>
+                  {r.detail && <span className="block text-xs text-slate-500 dark:text-slate-400">{r.detail}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* Grid de Métricas Clave al estilo Dashboard */}
       <AccountMetrics />
