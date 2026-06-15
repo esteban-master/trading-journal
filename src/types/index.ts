@@ -56,7 +56,9 @@ export interface Trade {
   riskPercent?: number; // Risk recommended/taken on this trade
   description?: string; // Rich text description
   images: string[]; // Array of image URLs
-  date: string; // ISO date string
+  date: string; // ISO date string (entrada / ejecución)
+  exitDate?: string; // ISO datetime de cierre (para tiempo de retención)
+  session?: TradeSession; // sesión de mercado en la entrada
   status: TradeStatus;
   phase?: number;
 
@@ -68,6 +70,8 @@ export interface Trade {
 }
 
 export type EmotionalState = 'Calm' | 'Confident' | 'FOMO' | 'Revenge' | 'Anxious' | 'Bored';
+
+export type TradeSession = 'Asia' | 'London' | 'NewYork' | 'Other';
 
 export interface Withdrawal {
   id: string;
@@ -96,4 +100,67 @@ export interface RiskEvent {
   emotionNote?: string;
   decision?: RiskDecision;
   date: string;                // ISO date string
+}
+
+// --- Apuntes (Knowledge Base) ---
+
+// Fuente/Video: contenedor de apuntes (un en vivo de YouTube, curso, libro, etc.)
+export type NoteSourceType = 'youtube_live' | 'video' | 'article' | 'book' | 'course' | 'other';
+
+export interface NoteSource {
+  id: string;
+  userId: string;
+  title: string;                 // "Cómo lidiar con la pérdida"
+  type: NoteSourceType;
+  url?: string;                  // link YouTube → de aquí se deriva miniatura/embed
+  authors?: string[];            // ["José", "Ivelina Castillo"]
+  date?: string;                 // ISO date string del contenido
+  summary?: string;              // resumen corto (HTML o texto)
+  transcript?: string;           // transcripción completa (HTML); colapsable en UI
+  seedKey?: string;              // marca de contenido sembrado (idempotencia)
+  createdAt: string;             // ISO date string
+  updatedAt?: string;            // ISO date string
+}
+
+// Apunte individual
+export interface Note {
+  id: string;
+  userId: string;
+  sourceId?: string;             // pertenece a una fuente (opcional)
+  title: string;
+  content: string;               // HTML (RichTextEditor / Markdown convertido)
+  category: string;              // slug de NoteCategory (p.ej. "psicologia")
+  tags?: string[];
+  keyTakeaways?: string[];       // bullets accionables (opcional)
+  linkedTradeIds?: string[];     // vínculo a trades (array-contains)
+  linkedAccountId?: string;      // vínculo a una cuenta
+  createdAt: string;             // ISO date string
+  updatedAt?: string;            // ISO date string
+}
+
+// Categoría gestionable (para ir agregando temas con el tiempo)
+export interface NoteCategory {
+  id: string;
+  userId: string;
+  slug: string;                  // "psicologia"
+  label: string;                 // "Psicología"
+  color?: string;                // clase Tailwind para el chip
+}
+
+// Recordatorio / regla accionable derivada de los apuntes
+export type ReminderTrigger = 'tilt' | 'afterLoss' | 'beforeTrade' | 'greenDay' | 'general';
+
+export interface Reminder {
+  id: string;
+  userId: string;
+  title: string;                 // "Haz una pausa, no operes por venganza"
+  detail?: string;               // explicación corta
+  triggers: ReminderTrigger[];   // dónde debe aparecer
+  category?: string;
+  tags?: string[];
+  sourceId?: string;             // origen (opcional)
+  noteId?: string;               // origen (opcional)
+  active: boolean;
+  createdAt: string;             // ISO date string
+  updatedAt?: string;            // ISO date string
 }

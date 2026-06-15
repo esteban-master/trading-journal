@@ -40,6 +40,10 @@ const normalizeTrade = (docId: string, data: DocumentData): Trade => {
     date: data.date instanceof Timestamp
       ? data.date.toDate().toISOString()
       : data.date ?? new Date().toISOString(),
+    exitDate: data.exitDate instanceof Timestamp
+      ? data.exitDate.toDate().toISOString()
+      : data.exitDate ?? undefined,
+    session: data.session ?? undefined,
     status: data.status ?? 'Closed',
     phase: data.phase,
     emotionalState: data.emotionalState,
@@ -123,6 +127,8 @@ export function useCreateTrade() {
         images: newTrade.images ?? [],
         status: newTrade.status ?? 'Closed',
         date: newTrade.date,
+        exitDate: newTrade.exitDate ?? null,
+        session: newTrade.session ?? null,
         createdAt: Timestamp.fromDate(new Date(newTrade.date)),
         phase: accData.status === 'Evaluation' ? currentPhase : (accData.status === 'Funded' ? 3 : null),
         emotionalState: newTrade.emotionalState ?? null,

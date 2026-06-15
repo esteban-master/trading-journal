@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { Brain, Wind, ShieldCheck, MinusCircle, CheckCircle2, Lock } from 'lucide-react';
+import { Brain, Wind, ShieldCheck, MinusCircle, CheckCircle2, Lock, BookOpen } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/riskGuardian';
 import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
 import { useLogRiskEvent } from '@/hooks/useRiskEvents';
+import { useReminders } from '@/hooks/useReminders';
 
 interface TiltGuardModalProps {
   account: Account;
@@ -139,6 +141,7 @@ function minutesUntilMidnight(): number {
 export function TiltGuardModal({ account, trades, open, onOpenChange, winRate, avgRR, maxDrawdownLimitPercent }: TiltGuardModalProps) {
   const { startCooldown, setDeRisk, setLockout, markStreakHandled } = useRiskGuardianStore();
   const logEvent = useLogRiskEvent();
+  const { data: tiltReminders = [] } = useReminders({ trigger: 'tilt', onlyActive: true });
 
   const [emotion, setEmotion] = useState<EmotionalState | ''>('');
   const [note, setNote] = useState('');
@@ -272,6 +275,28 @@ export function TiltGuardModal({ account, trades, open, onOpenChange, winRate, a
                 </div>
               ))}
             </div>
+
+            {/* Recordatorios de tus apuntes */}
+            {tiltReminders.length > 0 && (
+              <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h4 className="flex items-center gap-1.5 text-sm font-semibold text-indigo-900 dark:text-indigo-300">
+                    <BookOpen className="size-4" /> Recordatorios de tus apuntes
+                  </h4>
+                  <Link to="/apuntes" className="text-[11px] text-indigo-600 hover:underline dark:text-indigo-400">
+                    Ver apuntes
+                  </Link>
+                </div>
+                <ul className="space-y-2">
+                  {tiltReminders.map((r) => (
+                    <li key={r.id} className="text-sm text-slate-700 dark:text-slate-200">
+                      <span className="font-medium">{r.title}</span>
+                      {r.detail && <span className="block text-xs text-slate-500 dark:text-slate-400">{r.detail}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Journaling obligatorio */}
             <div className="space-y-2">

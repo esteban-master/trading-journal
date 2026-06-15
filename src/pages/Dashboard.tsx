@@ -39,6 +39,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart'
 import { cn } from '@/lib/utils'
 import CreateTradeDialog from "@/components/trades/CreateTradeDialog"
+import {
+  computeAvgHoldingMinutes,
+  formatDuration,
+  computeSessionDistribution,
+  computeExpectancy,
+  SESSION_LABELS,
+} from "@/lib/tradeStats"
+import { TradeSession } from "@/types"
+
+// Construye un trazo SVG (sparkline) real a partir de una serie de valores.
+function buildSparkline(values: number[], width = 120, height = 40): string {
+  if (values.length < 2) return `M 0 ${height / 2} L ${width} ${height / 2}`
+  const pts = values.slice(-24)
+  const min = Math.min(...pts)
+  const max = Math.max(...pts)
+  const range = max - min || 1
+  const step = width / (pts.length - 1)
+  return pts
+    .map((v, i) => {
+      const x = i * step
+      const y = height - ((v - min) / range) * height
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
+    })
+    .join(' ')
+}
+
+const SESSION_COLOR: Record<TradeSession, string> = {
+  NewYork: 'bg-blue-500',
+  London: 'bg-purple-500',
+  Asia: 'bg-amber-500',
+  Other: 'bg-slate-400',
+}
 
 export default function Dashboard() {
   const [hoveredMetric, setHoveredMetric] = useState<string | null>(null)
@@ -102,7 +134,8 @@ export default function Dashboard() {
   // --- CÁLCULOS DE MÉTRICAS GLOBALES ---
   const activeAccounts = accounts.filter(a => a.status !== 'Blown')
   const totalBalance = activeAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0)
-  const totalStartingBalance = activeAccounts.reduce((sum, acc) => sum + acc.startingBalance, 0)
+  // Base de capital de TODO el historial (incl. quemadas) para el drawdown global
+  const allStartingBalance = accounts.reduce((sum, acc) => sum + acc.startingBalance, 0)
 
   // Filtrar trades cerrados
   const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined)
@@ -138,25 +171,25 @@ export default function Dashboard() {
   const startBalThisMonth = totalBalance - monthlyPnL
   const monthlyPercentChange = startBalThisMonth > 0 ? (monthlyPnL / startBalThisMonth) * 100 : 0
 
-  // Sparkline estático o visual
-  const sparklineBalance = "M 0 35 Q 15 25, 30 28 T 60 12 T 90 22 T 120 5"
-
-  // --- CURVA DE EQUITY DINÁMICA ---
+  // --- CURVA DE P&L ACUMULADO (todo el historial, incl. cuentas quemadas) ---
+  // Es P&L acumulado (no "balance combinado"), bien definido y sin el problema de
+  // retiros/reseteos de fase que tenía el cálculo de balance.
   const cronTrades = [...closedTrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  const equityPoints = [{ date: 'Inicio', balance: totalStartingBalance }]
-  let runningBalance = totalStartingBalance
+  const equityPoints = [{ date: 'Inicio', balance: 0 }]
+  let cumulativePnL = 0
 
   cronTrades.forEach(t => {
-    runningBalance += t.pnl
+    cumulativePnL += (t.pnl || 0)
     const dateObj = new Date(t.date)
     const formattedDate = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
     equityPoints.push({
       date: formattedDate,
-      balance: runningBalance
+      balance: cumulativePnL
     })
   })
 
-  const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
+  const totalPnL = cumulativePnL
+  const sparkPath = buildSparkline(equityPoints.map(p => p.balance))
 
   // --- DISTRIBUCIÓN POR ACTIVO ---
   const assetGroups: { [key: string]: { name: string; count: number; wins: number; profit: number; color: string } } = {}
@@ -209,10 +242,10 @@ export default function Dashboard() {
     }
   })
 
-  // Drawdown Máximo global
-  let peak = totalStartingBalance
+  // Drawdown Máximo global (sobre el capital inicial de todas las cuentas)
+  let peak = allStartingBalance
   let maxDrawdownPercentage = 0
-  let runningBalForDD = totalStartingBalance
+  let runningBalForDD = allStartingBalance
 
   cronTrades.forEach(t => {
     runningBalForDD += t.pnl
@@ -231,6 +264,12 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
 
+  // --- MÉTRICAS DE TIEMPO Y EXPECTANCY (reales, todo el historial) ---
+  const avgHoldingMinutes = computeAvgHoldingMinutes(closedTrades)
+  const sessionDistribution = computeSessionDistribution(closedTrades)
+  const hasTimeData = avgHoldingMinutes !== null || sessionDistribution.length > 0
+  const expectancy = computeExpectancy(closedTrades)
+
   // Formato del mes actual
   const currentMonthName = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
   const formattedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)
@@ -246,14 +285,14 @@ export default function Dashboard() {
   const pfPercent = Math.min((pfValue / 4.0) * 100, 100)
 
   // --- METRICAS DE CAPITAL Y RETIROS ---
-  const fundedAccounts = accounts.filter(a => a.status === 'Funded');
+  const fundedAccounts = accounts.filter(a => a.status === 'Funded' || a.status === 'Payout');
   const realAccounts = accounts.filter(a => a.status === 'Real');
 
   const fundedAccountIds = fundedAccounts.map(a => a.id);
   const realAccountIds = realAccounts.map(a => a.id);
 
-  // Profit Factor (Fondeadas)
-  const fundedTrades = closedTrades.filter(t => fundedAccountIds.includes(t.accountId));
+  // Profit Factor (Fondeadas) — solo la fase fondeada, excluyendo trades de evaluación (fases 1/2)
+  const fundedTrades = closedTrades.filter(t => fundedAccountIds.includes(t.accountId) && t.phase !== 1 && t.phase !== 2);
   const fundedWinningTrades = fundedTrades.filter(t => t.pnl > 0);
   const fundedLosingTrades = fundedTrades.filter(t => t.pnl < 0);
   const fundedGrossProfit = fundedWinningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
@@ -340,7 +379,7 @@ export default function Dashboard() {
               <div className="h-10 w-24">
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 120 40">
                   <path
-                    d={sparklineBalance}
+                    d={sparkPath}
                     fill="none"
                     stroke="url(#balanceGradient)"
                     strokeWidth="2.5"
@@ -492,6 +531,13 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Leyenda de alcance: distingue capital (cuentas activas) de desempeño (todo el historial) */}
+      <p className="-mt-3 text-[11px] text-slate-400 dark:text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-flex items-center gap-1"><DollarSign className="size-3 text-indigo-400" /> <strong className="font-semibold text-slate-500 dark:text-slate-400">Capital</strong> (Balance / Retiros / ROI): cuentas activas.</span>
+        <span className="text-slate-300 dark:text-slate-700">•</span>
+        <span className="inline-flex items-center gap-1"><Activity className="size-3 text-emerald-400" /> <strong className="font-semibold text-slate-500 dark:text-slate-400">Desempeño</strong> (Win rate / Profit factor / R:R / rachas): todo tu historial, incl. cuentas quemadas.</span>
+      </p>
+
       {/* Tabs Principales de Visualización */}
       <Tabs defaultValue="overview" className="w-full">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
@@ -539,10 +585,10 @@ export default function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <div>
                 <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                  Curva de Equity (Balance en Tiempo Real)
+                  P&L Acumulado
                 </CardTitle>
                 <CardDescription>
-                  Representación gráfica del crecimiento de capital acumulado de todas las cuentas.
+                  Ganancia/pérdida neta acumulada de todas tus operaciones (todo el historial).
                 </CardDescription>
               </div>
               <Badge variant="outline" className="bg-indigo-500/5 text-indigo-500 dark:text-indigo-400 border-indigo-500/20 text-xs font-semibold">
@@ -608,12 +654,12 @@ export default function Dashboard() {
             <CardFooter className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800/40 mt-2 pt-4">
               <span className="flex items-center gap-1.5 font-medium">
                 <TrendingUp className="size-3.5 text-emerald-500" />
-                Crecimiento neto de <strong className={cn(totalPnL >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                P&L neto total: <strong className={cn(totalPnL >= 0 ? "text-emerald-500" : "text-rose-500")}>
                   {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </strong> global
+                </strong>
               </span>
               <span className="text-slate-455 dark:text-slate-500 text-[11px] font-semibold">
-                Balance Inicial: ${totalStartingBalance.toLocaleString()}
+                Todo el historial (incl. quemadas)
               </span>
             </CardFooter>
           </Card>
@@ -705,6 +751,13 @@ export default function Dashboard() {
                     <div className="h-full bg-rose-500/80" style={{ width: `${avgWin + avgLoss > 0 ? (avgLoss / (avgWin + avgLoss)) * 100 : 50}%` }} />
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-xs text-slate-400">Expectancy (esperado por trade)</span>
+                  <span className={cn("text-sm font-bold font-mono", expectancy >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                    {expectancy >= 0 ? '+' : ''}${expectancy.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
@@ -742,35 +795,56 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Tiempos de Retención */}
+            {/* Métricas de Tiempo (reales) */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-md font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                   <Clock className="size-4 text-blue-500" />
                   Métricas de Tiempo
                 </CardTitle>
-                <CardDescription>Sesión operativa y duración promedio.</CardDescription>
+                <CardDescription>Retención y sesión, calculadas de tus trades.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
-                <div className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-850">
-                  <Clock className="size-8 text-blue-400 shrink-0" />
-                  <div>
-                    <span className="text-xs text-slate-455 block">Tiempo de Retención Prom.</span>
-                    <strong className="text-md text-slate-800 dark:text-white">4 horas, 15 minutos</strong>
+                {!hasTimeData ? (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 bg-slate-50/40 dark:bg-slate-900/30">
+                    Registra trades con <strong>hora de cierre</strong> y <strong>sesión</strong> para ver tu tiempo de retención y la distribución por sesión.
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-850">
+                      <Clock className="size-8 text-blue-400 shrink-0" />
+                      <div>
+                        <span className="text-xs text-slate-455 block">Tiempo de Retención Prom.</span>
+                        <strong className="text-md text-slate-800 dark:text-white">
+                          {avgHoldingMinutes !== null ? formatDuration(avgHoldingMinutes) : 'Sin datos de cierre'}
+                        </strong>
+                      </div>
+                    </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span className="flex items-center gap-1 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" /> NY Session (62%)
-                  </span>
-                  <span className="flex items-center gap-1 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-purple-500" /> LDN Session (28%)
-                  </span>
-                  <span className="flex items-center gap-1 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" /> Asia Session (10%)
-                  </span>
-                </div>
+                    {sessionDistribution.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {sessionDistribution.map((s) => (
+                          <div key={s.session} className="space-y-1">
+                            <div className="flex justify-between text-[11px]">
+                              <span className="flex items-center gap-1.5 font-medium text-slate-500 dark:text-slate-400">
+                                <span className={cn("w-2 h-2 rounded-full", SESSION_COLOR[s.session])} />
+                                {SESSION_LABELS[s.session]}
+                              </span>
+                              <span className="font-bold text-slate-600 dark:text-slate-300">
+                                {Math.round(s.percent)}% <span className="text-slate-400 font-normal">({s.count})</span>
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div className={cn("h-full rounded-full transition-all", SESSION_COLOR[s.session])} style={{ width: `${s.percent}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 text-center">Aún no has etiquetado la sesión de tus trades.</p>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

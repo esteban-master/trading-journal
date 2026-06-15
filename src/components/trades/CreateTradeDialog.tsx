@@ -11,7 +11,8 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
 import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
 import { getDayKey } from '@/lib/riskGuardian';
-import { EmotionalState } from '@/types';
+import { guessSession, SESSION_LABELS } from '@/lib/tradeStats';
+import { EmotionalState, TradeSession } from '@/types';
 import {
   Form,
   FormControl,
@@ -98,6 +99,8 @@ const tradeSchema = z.object({
   emotionalState: z.string().optional(),
   disciplineScore: z.coerce.number().min(1).max(5).optional(),
   followedPlan: z.boolean().optional(),
+  exitDate: z.string().optional(),
+  session: z.string().optional(),
 });
 
 type TradeValues = z.infer<typeof tradeSchema>;
@@ -128,6 +131,8 @@ export default function CreateTradeDialog() {
       description: DEFAULT_DESCRIPTION_TEMPLATE,
       riskReward: 0,
       date: getLocalDateTimeString(),
+      exitDate: '',
+      session: guessSession(getLocalDateTimeString()),
       emotionalState: undefined,
       disciplineScore: 3,
       followedPlan: true,
@@ -208,6 +213,8 @@ export default function CreateTradeDialog() {
         images: [], // File upload can be integrated later if needed
         status: 'Closed',
         date: new Date(values.date).toISOString(),
+        exitDate: values.exitDate ? new Date(values.exitDate).toISOString() : undefined,
+        session: (values.session || undefined) as TradeSession | undefined,
         emotionalState: values.emotionalState as EmotionalState | undefined,
         disciplineScore: values.disciplineScore,
         followedPlan: values.followedPlan,
@@ -589,24 +596,85 @@ export default function CreateTradeDialog() {
                     )}
                   />
 
-                  {/* Fecha y Hora */}
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fecha y Hora de Ejecución</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            className="cursor-pointer font-medium"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Fecha/Hora de entrada y cierre */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Entrada (Fecha y Hora)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="datetime-local"
+                              className="cursor-pointer font-medium"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                // Sugerir sesión automáticamente al cambiar la hora de entrada
+                                if (e.target.value) form.setValue('session', guessSession(e.target.value));
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="exitDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            Cierre (opcional)
+                            <TooltipProvider>
+                              <Tooltip delayDuration={300}>
+                                <TooltipTrigger asChild>
+                                  <Info className="size-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[280px] p-3 shadow-lg border-primary/20">
+                                  <p className="text-sm">Hora a la que cerraste la operación. Se usa para calcular tu <strong>tiempo de retención</strong> promedio.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="datetime-local"
+                              className="cursor-pointer font-medium"
+                              {...field}
+                              value={field.value || ''}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="session"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sesión</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Sesión de mercado" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectGroup>
+                                {(Object.keys(SESSION_LABELS) as TradeSession[]).map((s) => (
+                                  <SelectItem key={s} value={s}>{SESSION_LABELS[s]}</SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   {/* Subida de Imágenes */}
                   <div className="space-y-2">

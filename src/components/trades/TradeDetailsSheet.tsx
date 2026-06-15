@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatDate } from '@/lib/formatDate';
 import { cn } from '@/lib/utils';
+import { RelatedNotes } from '@/components/notes/RelatedNotes';
 
 interface TradeDetailsSheetProps {
   trade: Trade;
@@ -210,6 +211,11 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
               </div>
             </div>
           )}
+
+          <Separator />
+
+          {/* Apuntes / Lecciones vinculados */}
+          <RelatedNotes tradeId={trade.id} accountId={trade.accountId} />
         </div>
       </SheetContent>
     </Sheet>
