@@ -1,15 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useForm , Resolver} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import { UploadCloud, X, Loader2, Info, Plus, Brain } from 'lucide-react';
+import { UploadCloud, X, Loader2, Info, Plus, Brain, ShieldAlert, Lock } from 'lucide-react';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
 import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
+import { getDayKey } from '@/lib/riskGuardian';
 import { EmotionalState } from '@/types';
 import {
   Form,
@@ -133,6 +134,34 @@ export default function CreateTradeDialog() {
     },
   });
 
+  // ─── Bloqueo del Centinela para la cuenta seleccionada (cooldown / día bloqueado) ───
+  const selectedAccountId = form.watch('accountId') || defaultAccountId;
+  const guardianSession = useRiskGuardianStore((s) => (selectedAccountId ? s.sessions[selectedAccountId] : undefined));
+  const isGuardianToday = guardianSession?.dayKey === getDayKey(new Date());
+  const cooldownUntil = isGuardianToday ? guardianSession?.cooldownUntil ?? null : null;
+  const manualLockout = isGuardianToday ? guardianSession?.manualLockout ?? false : false;
+
+  const [override, setOverride] = useState(false);
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const id = setInterval(() => setNowTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
+  // Reinicia la anulación al abrir el diálogo o cambiar de cuenta
+  useEffect(() => { setOverride(false); }, [open, selectedAccountId]);
+
+  const cooldownRemainingMs = cooldownUntil ? cooldownUntil - Date.now() : 0;
+  const cooldownActive = cooldownRemainingMs > 0;
+  const isBlocked = cooldownActive || manualLockout;
+  const cooldownLabel = useMemo(() => {
+    if (!cooldownActive) return '';
+    const total = Math.ceil(cooldownRemainingMs / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }, [cooldownActive, cooldownRemainingMs]);
+
   // Dropzone para las imágenes (Files reales)
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles].slice(0, 3)); // Max 3
@@ -150,9 +179,20 @@ export default function CreateTradeDialog() {
 
   const onSubmit = async (values: TradeValues) => {
     try {
-      // Marca como "revancha" si se registra durante un cooldown o lockout activo del Centinela
+      // Bloqueo real del Centinela: durante cooldown o día bloqueado no se puede registrar
+      // (salvo anulación explícita, que deja el trade marcado como "revancha").
       const session = getGuardianSession(values.accountId);
-      const isRevenge = session.manualLockout || (session.cooldownUntil ? session.cooldownUntil > Date.now() : false);
+      const cdActive = session.cooldownUntil ? session.cooldownUntil > Date.now() : false;
+      const blockedNow = cdActive || session.manualLockout;
+      if (blockedNow && !override) {
+        toast.error('Bloqueado por el Centinela', {
+          description: cdActive
+            ? 'Estás en cooldown. Espera a que termine o púlsalo para anular.'
+            : 'Cerraste la jornada (día bloqueado).',
+        });
+        return;
+      }
+      const isRevenge = blockedNow;
 
       await createTradeMutation.mutateAsync({
         accountId: values.accountId,
@@ -202,6 +242,34 @@ export default function CreateTradeDialog() {
         </DialogHeader>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1 ">
+              {isBlocked && (
+                <div className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300">
+                    {manualLockout ? <Lock className="size-5 shrink-0" /> : <ShieldAlert className="size-5 shrink-0" />}
+                    <span className="font-bold text-sm">
+                      {manualLockout ? 'Día bloqueado por el Centinela' : `Cooldown activo · ${cooldownLabel} restante`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-700/80 dark:text-rose-300/80">
+                    {manualLockout
+                      ? 'Cerraste la jornada en el Tilt Guard. Registrar nuevos trades está bloqueado hasta mañana.'
+                      : 'Estás en tiempo de enfriamiento tras tu racha de pérdidas. Respira y espera a que termine.'}
+                  </p>
+                  {!override ? (
+                    <button
+                      type="button"
+                      onClick={() => setOverride(true)}
+                      className="self-start text-xs font-semibold text-rose-700 dark:text-rose-300 underline underline-offset-2 hover:text-rose-900 dark:hover:text-rose-200"
+                    >
+                      Operé igual: registrar de todas formas (quedará marcado como “revancha”)
+                    </button>
+                  ) : (
+                    <span className="self-start text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      ⚠ Anulado: este trade se guardará marcado como “revancha”.
+                    </span>
+                  )}
+                </div>
+              )}
               <ScrollArea className="h-[55vh] md:h-[60vh] pr-3">
                 <div className="flex flex-col gap-5 pb-2">
                     {/* Selección de Cuenta */}
@@ -584,11 +652,16 @@ export default function CreateTradeDialog() {
                   }} className="">
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={saving} className=" bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-sm transition-colors cursor-pointer">
+                <Button type="submit" disabled={saving || (isBlocked && !override)} className=" bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   {saving ? (
                     <>
                       <Loader2 className="animate-spin mr-2" />
                       Guardando...
+                  </>
+                ) : (isBlocked && !override) ? (
+                  <>
+                    <Lock className="mr-2 size-4" />
+                    Bloqueado
                   </>
                 ) : (
                   'Guardar Trade'

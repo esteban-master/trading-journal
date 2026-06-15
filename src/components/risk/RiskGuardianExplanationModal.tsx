@@ -125,7 +125,7 @@ export function RiskGuardianExplanationModal({ account }: RiskGuardianExplanatio
                 <li><strong>Reencuadre:</strong> te dice si tu racha es ruido, elevada o anómala (el árbitro de arriba).</li>
                 <li><strong>Respiración 4-4-4-4</strong> + checklist anti-tilt (aléjate, relee tu plan, sin revancha).</li>
                 <li><strong>Registro emocional obligatorio</strong> antes de continuar (queda guardado).</li>
-                <li><strong>Cooldown opcional:</strong> 15 / 30 / 60 min o el resto del día (corre en la barra).</li>
+                <li><strong>Cooldown opcional:</strong> 15 / 30 / 60 min o el resto del día. Mientras corre, la app <strong>bloquea registrar nuevos trades</strong> (puedes anular, pero quedará marcado como "revancha").</li>
               </ul>
             </div>
 
