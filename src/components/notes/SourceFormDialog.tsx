@@ -137,6 +137,7 @@ function SourceFormBody({ source, onClose }: { source?: NoteSource; onClose: () 
 
           <div className="flex flex-col gap-2">
             <Label>Transcripción / notas largas (opcional)</Label>
+            
             <RichTextEditor value={transcript} onChange={setTranscript} />
           </div>
         </div>
