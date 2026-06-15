@@ -42,6 +42,7 @@ import { NoteFormDialog } from '@/components/notes/NoteFormDialog';
 import { ImportSourceDialog } from '@/components/notes/ImportSourceDialog';
 import { SourceFormDialog } from '@/components/notes/SourceFormDialog';
 import { ReminderEditor } from '@/components/notes/ReminderEditor';
+import { ImportRemindersDialog } from '@/components/notes/ImportRemindersDialog';
 import { NoteDetailsSheet } from '@/components/notes/NoteDetailsSheet';
 
 export default function NotesPage() {
@@ -61,6 +62,7 @@ export default function NotesPage() {
   const [editingSource, setEditingSource] = useState<NoteSource | undefined>(undefined);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | undefined>(undefined);
+  const [importRemindersOpen, setImportRemindersOpen] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -263,7 +265,14 @@ export default function NotesPage() {
 
         {/* ───────── Recordatorios ───────── */}
         <TabsContent value="recordatorios" className="mt-4 flex flex-col gap-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setImportRemindersOpen(true)}
+            >
+              <Upload className="size-4" />
+              Importar lista
+            </Button>
             <Button
               onClick={() => {
                 setEditingReminder(undefined);
@@ -309,6 +318,7 @@ export default function NotesPage() {
         reminder={editingReminder}
         categories={categories}
       />
+      <ImportRemindersDialog open={importRemindersOpen} onOpenChange={setImportRemindersOpen} />
       <NoteDetailsSheet
         note={selectedNote}
         open={sheetOpen}

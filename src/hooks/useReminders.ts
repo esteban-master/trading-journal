@@ -121,3 +121,32 @@ export function useDeleteReminder() {
     },
   });
 }
+
+export function useImportReminders() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (items: Array<{ title: string; detail?: string; triggers?: ReminderTrigger[] }>) => {
+      if (!user?.uid) throw new Error('Unauthenticated');
+      const now = new Date().toISOString();
+      await Promise.all(
+        items.map((item) =>
+          addDoc(collection(db, collectionKey), {
+            userId: user.uid,
+            title: item.title,
+            detail: item.detail ?? '',
+            triggers: item.triggers ?? ['general'],
+            active: true,
+            tags: [],
+            createdAt: now,
+          }),
+        ),
+      );
+      return items.length;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    },
+  });
+}
