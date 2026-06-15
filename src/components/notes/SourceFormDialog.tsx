@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -136,7 +137,7 @@ function SourceFormBody({ source, onClose }: { source?: NoteSource; onClose: () 
 
           <div className="flex flex-col gap-2">
             <Label>Transcripción / notas largas (opcional)</Label>
-            <Textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={5} />
+            <RichTextEditor value={transcript} onChange={setTranscript} />
           </div>
         </div>
       </ScrollArea>
