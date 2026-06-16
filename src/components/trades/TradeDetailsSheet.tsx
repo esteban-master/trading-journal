@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -7,13 +8,14 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, TrendingUp, TrendingDown, Crosshair, Target, Activity, Image as ImageIcon, Brain, Flame } from 'lucide-react';
+import { Eye, Calendar, TrendingUp, TrendingDown, Crosshair, Target, Activity, Image as ImageIcon, Brain, Flame, ZoomIn } from 'lucide-react';
 import { Trade } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatDate } from '@/lib/formatDate';
 import { cn } from '@/lib/utils';
 import { RelatedNotes } from '@/components/notes/RelatedNotes';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface TradeDetailsSheetProps {
   trade: Trade;
@@ -31,8 +33,10 @@ const EMOTION_META: Record<string, { label: string; cls: string }> = {
 export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
   const isLong = trade.direction === 'Long';
   const isPositive = trade.pnl >= 0;
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
 
   return (
+    <>
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400">
@@ -189,24 +193,23 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
               </h4>
               <div className="grid grid-cols-1 gap-4">
                 {trade.images.map((imgUrl, idx) => (
-                  <a 
-                    key={idx} 
-                    href={imgUrl} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="relative group overflow-hidden rounded-xl border shadow-sm aspect-video bg-slate-950 flex items-center justify-center hover:ring-2 hover:ring-indigo-500 transition-all"
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setLightboxIndex(idx)}
+                    className="relative group overflow-hidden rounded-xl border shadow-sm aspect-video bg-slate-950 flex items-center justify-center hover:ring-2 hover:ring-indigo-500 transition-all w-full"
                   >
-                    <img 
-                      src={imgUrl} 
-                      alt={`Captura ${idx + 1}`} 
+                    <img
+                      src={imgUrl}
+                      alt={`Captura ${idx + 1}`}
                       className="object-contain max-w-full max-h-full"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-lg text-white font-medium text-sm">
-                        Ver Imagen Completa
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-lg text-white font-medium text-sm">
+                        <ZoomIn className="size-4" /> Ver con zoom
                       </span>
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -219,5 +222,14 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
         </div>
       </SheetContent>
     </Sheet>
+
+    {trade.images && trade.images.length > 0 && (
+      <ImageLightbox
+        images={trade.images}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(-1)}
+      />
+    )}
+    </>
   );
 }

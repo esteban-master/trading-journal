@@ -51,6 +51,7 @@
     "tailwindcss": "^4.1.17",
     "use-debounce": "^10.1.1",
     "uuid": "^14.0.0",
+    "yet-another-react-lightbox": "^3.32.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.8"
   },

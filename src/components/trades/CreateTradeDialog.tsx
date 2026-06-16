@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm , Resolver} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import { UploadCloud, X, Loader2, Info, Plus, Brain, ShieldAlert, Lock, BookOpen, ImageUp } from 'lucide-react';
+import { Loader2, Info, Plus, Brain, ShieldAlert, Lock, BookOpen, ImageUp } from 'lucide-react';
+import { ImageUploader } from '@/components/ui/image-uploader';
 import { useReminders } from '@/hooks/useReminders';
 import { useAuthStore } from '@/store/useAuthStore';
 import { uploadTradeImages } from '@/lib/uploadTradeImages';
@@ -177,20 +177,6 @@ export default function CreateTradeDialog() {
     return `${m}:${String(s).padStart(2, '0')}`;
   }, [cooldownActive, cooldownRemainingMs]);
 
-  // Dropzone para las imágenes (Files reales)
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles].slice(0, 3)); // Max 3
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 3,
-  });
-
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-  };
 
   const onSubmit = async (values: TradeValues) => {
     try {
@@ -758,33 +744,7 @@ export default function CreateTradeDialog() {
                   {/* Subida de Imágenes */}
                   <div className="space-y-2">
                     <FormLabel>Evidencia (Imágenes)</FormLabel>
-
-                    <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 bg-slate-50 dark:bg-slate-900/50'}`}>
-                      <input {...getInputProps()} />
-                      <UploadCloud className="size-10 text-slate-400 mx-auto mb-3" />
-                      <p className="text-slate-600 dark:text-slate-300 font-medium">Arrastra tus capturas aquí o haz clic para buscar</p>
-                      <p className="text-slate-400 text-xs mt-1">Soporta JPG, PNG (Max 3 imágenes)</p>
-                    </div>
-
-                    {files.length > 0 && (
-                      <div className="grid grid-cols-3 gap-3 mt-4">
-                        {files.map((file, idx) => {
-                          const url = URL.createObjectURL(file);
-                          return (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 aspect-video bg-slate-100">
-                              <img src={url} alt="Trade preview" className="w-full h-full object-cover" />
-                              <button
-                                type="button"
-                                onClick={() => removeFile(idx)}
-                                className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="size-4" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <ImageUploader files={files} onFilesChange={setFiles} maxFiles={3} />
                   </div>
                 </div>
                 
