@@ -4,17 +4,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { ColumnDef, ColumnFiltersState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
 import { Trade } from '../../../types';
-import { Activity, ChevronLeft, ChevronRight, ChevronsUpDown, ExternalLink, ImageIcon, Search } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, ChevronsUpDown, ImageIcon, Search } from 'lucide-react';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { formatDate } from '@/lib/formatDate';
 import { Badge } from '@/components/ui/badge';
 import { useMemo, useState } from 'react';
@@ -33,6 +26,45 @@ import { cn } from '@/lib/utils';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { TradeDetailsSheet } from '../../trades/TradeDetailsSheet';
 import CreateTradeDialog from '@/components/trades/CreateTradeDialog';
+
+function ImagesCellButton({ images }: { images: string[] }) {
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+
+  if (images.length === 0) return <span className="text-slate-400 text-xs">—</span>;
+
+  return (
+    <>
+      <TooltipProvider>
+        <Tooltip delayDuration={150}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setLightboxIndex(0)}
+              className="flex items-center justify-center p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700/80 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-all cursor-pointer shadow-xs hover:scale-105 duration-200 active:scale-95"
+            >
+              <ImageIcon className="size-4" />
+              {images.length > 1 && (
+                <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full">
+                  {images.length}
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="center" className="p-1 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl rounded-xl w-48">
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-100 dark:border-slate-800">
+              <img src={images[0]} alt="Preview" className="object-cover w-full h-full" />
+              <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-1.5 text-[10px] text-white text-center font-semibold">
+                Clic para ampliar
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <ImageLightbox images={images} index={lightboxIndex} onClose={() => setLightboxIndex(-1)} />
+    </>
+  );
+}
+
 const columns: ColumnDef<Trade>[] = [
   {
     accessorKey: 'date',
@@ -182,94 +214,7 @@ const columns: ColumnDef<Trade>[] = [
   {
     id: 'images',
     header: 'Capturas',
-    cell: ({ row }) => {
-      const images: string[] = row.original.images || [];
-      if (images.length === 0) return <span className="text-slate-400 text-xs">—</span>;
-
-      return (
-        <TooltipProvider>
-          <Tooltip delayDuration={150}>
-            <Dialog>
-              <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <button className="flex items-center justify-center p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700/80 text-slate-500 hover:text-indigo-655 dark:text-slate-400 dark:hover:text-indigo-400 transition-all cursor-pointer shadow-xs hover:scale-105 duration-200 active:scale-95">
-                    <ImageIcon className="size-4" />
-                    {images.length > 1 && (
-                      <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full">
-                        {images.length}
-                      </span>
-                    )}
-                  </button>
-                </DialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="center" className="p-1 border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl rounded-xl w-48 transition-all duration-300">
-                <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-100 dark:border-slate-800">
-                  <img
-                    src={images[0]}
-                    alt="Preview"
-                    className="object-cover w-full h-full"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-1.5 text-[10px] text-white text-center font-semibold">
-                    Clic para ampliar
-                  </div>
-                </div>
-              </TooltipContent>
-              <DialogContent className="max-w-4xl p-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    <ImageIcon className="size-5 text-indigo-500" />
-                    Capturas del Trade - {row.original.asset.toUpperCase()}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-slate-500">
-                    Registrado el {new Date(row.original.date).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })} • {row.original.strategy || 'Sin estrategia'}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="mt-4 flex flex-col gap-4">
-                  {images.length === 1 ? (
-                    <div className="relative aspect-video max-h-[60vh] w-full overflow-hidden rounded-xl border border-slate-250 dark:border-slate-850 shadow-lg bg-slate-950 flex items-center justify-center">
-                      <img
-                        src={images[0]}
-                        alt="Screenshot"
-                        className="object-contain max-w-full max-h-full"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {images.map((imgUrl, idx) => (
-                          <div key={idx} className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 shadow-md bg-slate-950 flex items-center justify-center group hover:border-indigo-500/50 transition-all duration-300">
-                            <img
-                              src={imgUrl}
-                              alt={`Captura ${idx + 1}`}
-                              className="object-contain max-w-full max-h-full"
-                            />
-                            <a
-                              href={imgUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            >
-                              <ExternalLink className="size-4" />
-                            </a>
-                            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-semibold">
-                              Imagen {idx + 1}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    },
+    cell: ({ row }) => <ImagesCellButton images={row.original.images || []} />,
   },
   {
     id: 'actions',
