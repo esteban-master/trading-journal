@@ -5,8 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router';
-import { UploadCloud, X, Loader2, Info, Plus, Brain, ShieldAlert, Lock, BookOpen } from 'lucide-react';
+import { UploadCloud, X, Loader2, Info, Plus, Brain, ShieldAlert, Lock, BookOpen, ImageUp } from 'lucide-react';
 import { useReminders } from '@/hooks/useReminders';
+import { useAuthStore } from '@/store/useAuthStore';
+import { uploadTradeImages } from '@/lib/uploadTradeImages';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreateTrade } from '@/hooks/useTrades';
@@ -119,10 +121,12 @@ export default function CreateTradeDialog() {
   const { data: beforeTradeReminders = [] } = useReminders({ trigger: 'beforeTrade', onlyActive: true });
   const { data: afterLossReminders = [] } = useReminders({ trigger: 'afterLoss', onlyActive: true });
 
+  const { user } = useAuthStore();
   const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [showAfterLoss, setShowAfterLoss] = useState(false);
   const [afterLossAccountId, setAfterLossAccountId] = useState('');
-  const saving = createTradeMutation.isPending;
+  const saving = createTradeMutation.isPending || uploading;
 
   const form = useForm<TradeValues>({
     resolver: zodResolver(tradeSchema) as unknown as Resolver<TradeValues>,
@@ -205,6 +209,18 @@ export default function CreateTradeDialog() {
       }
       const isRevenge = blockedNow;
 
+      // Subir imágenes a Firebase Storage antes de crear el trade
+      let imageUrls: string[] = [];
+      if (files.length > 0 && user) {
+        setUploading(true);
+        const tempId = crypto.randomUUID();
+        try {
+          imageUrls = await uploadTradeImages(files, user.uid, tempId);
+        } finally {
+          setUploading(false);
+        }
+      }
+
       await createTradeMutation.mutateAsync({
         accountId: values.accountId,
         asset: values.asset,
@@ -216,7 +232,7 @@ export default function CreateTradeDialog() {
         description: values.description,
         riskRewardRatio: values.riskReward,
         riskPercent: values.riskPercent,
-        images: [], // File upload can be integrated later if needed
+        images: imageUrls,
         status: 'Closed',
         date: new Date(values.date).toISOString(),
         exitDate: values.exitDate ? new Date(values.exitDate).toISOString() : undefined,
@@ -784,19 +800,24 @@ export default function CreateTradeDialog() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={saving || (isBlocked && !override)} className=" bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                  {saving ? (
+                  {uploading ? (
+                    <>
+                      <ImageUp className="animate-pulse mr-2 size-4" />
+                      Subiendo imágenes…
+                    </>
+                  ) : createTradeMutation.isPending ? (
                     <>
                       <Loader2 className="animate-spin mr-2" />
                       Guardando...
-                  </>
-                ) : (isBlocked && !override) ? (
-                  <>
-                    <Lock className="mr-2 size-4" />
-                    Bloqueado
-                  </>
-                ) : (
-                  'Guardar Trade'
-                )}
+                    </>
+                  ) : (isBlocked && !override) ? (
+                    <>
+                      <Lock className="mr-2 size-4" />
+                      Bloqueado
+                    </>
+                  ) : (
+                    'Guardar Trade'
+                  )}
                 </Button>
               </div>
             </form>
