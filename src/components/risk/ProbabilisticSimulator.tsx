@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dices, RefreshCw, Info, Hash, AlertTriangle, TrendingUp, Skull, Scale, TrendingDown, Save, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Dices, RefreshCw, Info, Hash, AlertTriangle, TrendingUp, Skull, Scale, TrendingDown, Save, Sparkles, ArrowRight, CheckCircle2, ClipboardList } from 'lucide-react';
 import { useRiskStore } from '@/store/useRiskStore';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
-import { runMonteCarloSimulation, SimulationResult } from '@/lib/simulator';
+import { runMonteCarloSimulation, SimulationResult, SimulatedTrade } from '@/lib/simulator';
 import { saveSimulationRun, getOptimizedRiskSettings, SimulationRunPayload } from '@/lib/simulationService';
 import { toast } from 'sonner';
 import {
@@ -192,6 +192,7 @@ export function ProbabilisticSimulator() {
                   <TabsList>
                     <TabsTrigger value="lab" className="flex items-center gap-2"><Dices className="w-4 h-4" /> Laboratorio</TabsTrigger>
                     <TabsTrigger value="optimizer" className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> Optimizador</TabsTrigger>
+                    <TabsTrigger value="trades" className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Trades</TabsTrigger>
                   </TabsList>
                   <Button variant="ghost" size="icon" onClick={() => setShowExplanation(true)} className="rounded-full text-indigo-500 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 h-8 w-8">
                     <Info className="w-4 h-4" />
@@ -700,6 +701,21 @@ export function ProbabilisticSimulator() {
 
                 </div>
               </TabsContent>
+              <TabsContent value="trades" className="mt-0 outline-none">
+                {!result ? (
+                  <div className="flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 min-h-[500px]">
+                    <ClipboardList className="w-12 h-12 text-slate-300 mb-4" />
+                    <p className="text-slate-500 font-medium">Ejecuta una simulación primero para ver los trades.</p>
+                  </div>
+                ) : (
+                  <TradeListView
+                    medianTrades={result.medianPathTrades}
+                    bestTrades={result.bestPathTrades}
+                    worstTrades={result.worstPathTrades}
+                    startingBalance={account?.startingBalance || 10000}
+                  />
+                )}
+              </TabsContent>
             </Tabs>
           </ScrollArea>
         </DialogContent>
@@ -791,6 +807,128 @@ export function ProbabilisticSimulator() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function TradeListView({
+  medianTrades,
+  bestTrades,
+  worstTrades,
+  startingBalance,
+}: {
+  medianTrades: SimulatedTrade[];
+  bestTrades: SimulatedTrade[];
+  worstTrades: SimulatedTrade[];
+  startingBalance: number;
+}) {
+  const scenarios = [
+    { label: 'Mediano', description: 'El escenario más probable (p50)', trades: medianTrades },
+    { label: 'Mejor', description: 'El escenario con mayor balance final', trades: bestTrades },
+    { label: 'Peor', description: 'El escenario con menor balance final', trades: worstTrades },
+  ];
+
+  return (
+    <Tabs defaultValue="mediano" className="w-full">
+      <TabsList className="mb-4">
+        <TabsTrigger value="mediano" className="flex items-center gap-2">
+          <ClipboardList className="w-3.5 h-3.5 text-indigo-500" /> Mediano
+        </TabsTrigger>
+        <TabsTrigger value="mejor" className="flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> Mejor
+        </TabsTrigger>
+        <TabsTrigger value="peor" className="flex items-center gap-2">
+          <TrendingDown className="w-3.5 h-3.5 text-red-500" /> Peor
+        </TabsTrigger>
+      </TabsList>
+
+      {scenarios.map(({ label, description, trades }) => {
+        const key = label.toLowerCase();
+        const wins = trades.filter(t => t.isWin).length;
+        const losses = trades.filter(t => !t.isWin).length;
+        const finalBalance = trades.length > 0 ? trades[trades.length - 1].balance : startingBalance;
+        const profitPercent = ((finalBalance - startingBalance) / startingBalance) * 100;
+        const isProfitable = finalBalance >= startingBalance;
+
+        return (
+          <TabsContent key={key} value={key} className="mt-0 outline-none">
+            {/* Summary Header */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Balance Final</p>
+                <p className={`text-2xl font-black mt-1 ${isProfitable ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                  ${finalBalance.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                </p>
+                <p className={`text-xs font-bold mt-0.5 ${isProfitable ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {isProfitable ? '+' : ''}{profitPercent.toFixed(1)}%
+                </p>
+              </div>
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Trades Totales</p>
+                <p className="text-2xl font-black mt-1 text-slate-800 dark:text-slate-100">{trades.length}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+              </div>
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-900/50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Ganadores</p>
+                <p className="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">{wins}</p>
+                <p className="text-xs text-emerald-500/70 mt-0.5">{trades.length > 0 ? ((wins / trades.length) * 100).toFixed(1) : 0}% winrate real</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900/50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Perdedores</p>
+                <p className="text-2xl font-black mt-1 text-red-600 dark:text-red-400">{losses}</p>
+                <p className="text-xs text-red-500/70 mt-0.5">{trades.length > 0 ? ((losses / trades.length) * 100).toFixed(1) : 0}% loss rate real</p>
+              </div>
+            </div>
+
+            {/* Trade Table */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="grid grid-cols-6 gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span>#</span>
+                <span>Resultado</span>
+                <span className="text-right">Riesgo %</span>
+                <span className="text-right">$ Riesgo</span>
+                <span className="text-right">P&amp;L</span>
+                <span className="text-right">Balance</span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/50 max-h-[480px] overflow-y-auto">
+                {trades.map(trade => (
+                  <div
+                    key={trade.index}
+                    className={`grid grid-cols-6 gap-2 px-4 py-2.5 text-sm transition-colors ${
+                      trade.isWin
+                        ? 'bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+                        : 'bg-red-50/40 dark:bg-red-950/10 hover:bg-red-50 dark:hover:bg-red-950/20'
+                    }`}
+                  >
+                    <span className="font-mono text-xs text-slate-400 font-semibold self-center">{trade.index}</span>
+                    <span className="self-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        trade.isWin
+                          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
+                      }`}>
+                        {trade.isWin ? '▲ WIN' : '▼ LOSS'}
+                      </span>
+                    </span>
+                    <span className={`text-right self-center font-bold ${trade.isWin ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {trade.riskPercent.toFixed(2)}%
+                    </span>
+                    <span className="text-right self-center text-slate-600 dark:text-slate-400 font-medium">
+                      ${trade.dollarRisk.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    </span>
+                    <span className={`text-right self-center font-black ${trade.pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    </span>
+                    <span className="text-right self-center font-bold text-slate-800 dark:text-slate-200">
+                      ${trade.balance.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        );
+      })}
+    </Tabs>
   );
 }
 

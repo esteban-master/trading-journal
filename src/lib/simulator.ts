@@ -2,6 +2,15 @@
 import { Trade } from '@/types';
 import { calculateNextRisk, RiskProgressionSettings } from './risk';
 
+export interface SimulatedTrade {
+  index: number;
+  isWin: boolean;
+  riskPercent: number;
+  dollarRisk: number;
+  pnl: number;
+  balance: number;
+}
+
 export interface SimulatorParams {
   winRate: number; // 0 to 100
   riskRewardRatio: number; // e.g. 2 means risking $1 to make $2
@@ -37,6 +46,9 @@ export interface SimulationResult {
   chartData: any[];
   samplePaths: any[];
   summary: SimulationSummary;
+  medianPathTrades: SimulatedTrade[];
+  bestPathTrades: SimulatedTrade[];
+  worstPathTrades: SimulatedTrade[];
 }
 
 function getPercentile(arr: number[], q: number) {
@@ -81,6 +93,7 @@ export function runMonteCarloSimulation({
   // iterationPaths[i][t] = balance for iteration i at trade t
   const iterationPaths: number[][] = [];
   const riskPaths: number[][] = [];
+  const iterationWinLoss: boolean[][] = [];
   
   // Store summary metrics per iteration
   const finalBalances: number[] = [];
@@ -109,6 +122,7 @@ export function runMonteCarloSimulation({
     const history: Trade[] = [];
     const balancePath = [startingBalance];
     const riskPath = [settings.baseRiskPercent];
+    const winLossPath: boolean[] = [];
 
     for (let i = 1; i <= numberOfTrades; i++) {
       // Calculate Risk for this specific trade
@@ -161,6 +175,7 @@ export function runMonteCarloSimulation({
       // Record for this trade
       balancePath.push(currentBalance);
       riskPath.push(riskResult.riskPercent);
+      winLossPath.push(isWin);
 
       // Push fake trade to history
       const fakeTrade: Trade = {
@@ -194,6 +209,7 @@ export function runMonteCarloSimulation({
 
     iterationPaths.push(balancePath);
     riskPaths.push(riskPath);
+    iterationWinLoss.push(winLossPath);
     
     finalBalances.push(currentBalance);
     maxDrawdowns.push(maxDrawdownPercent);
@@ -217,6 +233,30 @@ export function runMonteCarloSimulation({
   let kelly = w - ((1 - w) / riskRewardRatio);
   if (kelly < 0) kelly = 0; // If negative edge, Kelly is 0
   
+  // Find the 3 representative paths: median, best, worst
+  const bestIdx = finalBalances.indexOf(Math.max(...finalBalances));
+  const worstIdx = finalBalances.indexOf(Math.min(...finalBalances));
+  const medianBalance = getPercentile(finalBalances, 0.5);
+  const medianIdx = finalBalances.reduce((best, curr, i) =>
+    Math.abs(curr - medianBalance) < Math.abs(finalBalances[best] - medianBalance) ? i : best, 0
+  );
+
+  function buildTrades(idx: number): SimulatedTrade[] {
+    const balPath = iterationPaths[idx];
+    const riskPath = riskPaths[idx];
+    const winLoss = iterationWinLoss[idx];
+    const trades: SimulatedTrade[] = [];
+    for (let t = 1; t < balPath.length; t++) {
+      const prevBal = balPath[t - 1];
+      const rp = riskPath[t];
+      const dollarRisk = prevBal * (rp / 100);
+      const pnl = balPath[t] - prevBal;
+      trades.push({ index: t, isWin: winLoss[t - 1], riskPercent: rp, dollarRisk, pnl, balance: balPath[t] });
+      if (balPath[t] === 0) break;
+    }
+    return trades;
+  }
+
   // Aggregate Chart Data (per trade step across all iterations)
   const chartData = [];
   
@@ -253,6 +293,9 @@ export function runMonteCarloSimulation({
   return {
     chartData,
     samplePaths,
+    medianPathTrades: buildTrades(medianIdx),
+    bestPathTrades: buildTrades(bestIdx),
+    worstPathTrades: buildTrades(worstIdx),
     summary: {
       finalBalanceMedian: getPercentile(finalBalances, 0.5),
       finalBalanceWorst: Math.min(...finalBalances),
