@@ -36,6 +36,8 @@ const normalizeAccount = (docId: string, data: DocumentData): Account => {
     maxDrawdownPercentage: data.maxDrawdownPercentage,
     targetProfitPercentagePhase2: data.targetProfitPercentagePhase2,
     maxDrawdownPercentagePhase2: data.maxDrawdownPercentagePhase2,
+    targetProfitPercentagePhase3: data.targetProfitPercentagePhase3,
+    maxDrawdownPercentagePhase3: data.maxDrawdownPercentagePhase3,
     phase: data.phase,
     totalPhases: data.totalPhases,
     profitSplit: data.profitSplit,

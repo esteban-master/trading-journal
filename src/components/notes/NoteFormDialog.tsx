@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import { Note, NoteCategory, NoteSource } from '@/types';
 import { useCreateNote, useUpdateNote } from '@/hooks/useNotes';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
@@ -76,6 +76,21 @@ function NoteFormBody({ note, defaultSourceId, categories, sources, onClose }: N
   const [sourceId, setSourceId] = useState(note?.sourceId ?? defaultSourceId ?? NO_SOURCE);
   const [tags, setTags] = useState((note?.tags ?? []).join(', '));
   const [content, setContent] = useState(note?.content ?? '');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  const handleContentChange = async (html: string) => {
+    setContent(html);
+    if (!note) return;
+    setAutoSaveStatus('saving');
+    try {
+      await updateNote.mutateAsync({ id: note.id, fields: { content: html } });
+      setAutoSaveStatus('saved');
+      setTimeout(() => setAutoSaveStatus('idle'), 2000);
+    } catch {
+      setAutoSaveStatus('idle');
+      toast.error('No se pudo guardar automáticamente');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -158,27 +173,42 @@ function NoteFormBody({ note, defaultSourceId, categories, sources, onClose }: N
 
           <div className="flex flex-col gap-2">
             <Label>Contenido</Label>
-            <RichTextEditor value={content} onChange={setContent} />
+            <RichTextEditor value={content} onChange={handleContentChange} />
           </div>
         </div>
       </ScrollArea>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSubmit} disabled={saving} className="bg-indigo-600 text-white hover:bg-indigo-500">
-          {saving ? (
-            <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Guardando…
-            </>
-          ) : note ? (
-            'Guardar cambios'
-          ) : (
-            'Crear apunte'
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground h-4">
+          {autoSaveStatus === 'saving' && (
+            <span className="flex items-center gap-1 text-slate-400">
+              <Loader2 className="size-3 animate-spin" /> Guardando…
+            </span>
           )}
-        </Button>
+          {autoSaveStatus === 'saved' && (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500">
+              <CheckCircle2 className="size-3" /> Guardado
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={saving} className="bg-indigo-600 text-white hover:bg-indigo-500">
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Guardando…
+              </>
+            ) : note ? (
+              'Guardar cambios'
+            ) : (
+              'Crear apunte'
+            )}
+          </Button>
+        </div>
       </div>
     </>
   );

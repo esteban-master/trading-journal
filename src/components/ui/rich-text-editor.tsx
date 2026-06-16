@@ -4,6 +4,7 @@ import Underline from '@tiptap/extension-underline';
 import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Undo, Redo } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
+import { useDebouncedCallback } from 'use-debounce';
 
 const MenuBar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) {
@@ -127,9 +128,14 @@ interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  debounceMs?: number;
 }
 
-export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, debounceMs = 800 }: RichTextEditorProps) {
+  const debouncedOnChange = useDebouncedCallback((html: string) => {
+    onChange(html);
+  }, debounceMs);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -165,7 +171,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       },
     },
     onUpdate: ({ editor }: { editor: Editor }) => {
-      onChange(editor.getHTML());
+      debouncedOnChange(editor.getHTML());
     },
   });
 

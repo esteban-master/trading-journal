@@ -19,6 +19,8 @@ export interface Account {
   maxDrawdownPercentage?: number;
   targetProfitPercentagePhase2?: number;
   maxDrawdownPercentagePhase2?: number;
+  targetProfitPercentagePhase3?: number;
+  maxDrawdownPercentagePhase3?: number;
   phase?: number;
   totalPhases?: number;
   

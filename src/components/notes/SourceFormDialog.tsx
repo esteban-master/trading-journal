@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import { NoteSource, NoteSourceType } from '@/types';
 import { useCreateNoteSource, useUpdateNoteSource } from '@/hooks/useNoteSources';
 import { SOURCE_TYPE_LABEL } from '@/lib/apuntes';
@@ -57,6 +57,21 @@ function SourceFormBody({ source, onClose }: { source?: NoteSource; onClose: () 
   const [date, setDate] = useState(source?.date ? source.date.slice(0, 10) : '');
   const [summary, setSummary] = useState(source?.summary ?? '');
   const [transcript, setTranscript] = useState(source?.transcript ?? '');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  const handleTranscriptChange = async (html: string) => {
+    setTranscript(html);
+    if (!source) return;
+    setAutoSaveStatus('saving');
+    try {
+      await updateSource.mutateAsync({ id: source.id, fields: { transcript: html } });
+      setAutoSaveStatus('saved');
+      setTimeout(() => setAutoSaveStatus('idle'), 2000);
+    } catch {
+      setAutoSaveStatus('idle');
+      toast.error('No se pudo guardar automáticamente');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -138,19 +153,34 @@ function SourceFormBody({ source, onClose }: { source?: NoteSource; onClose: () 
           <div className="flex flex-col gap-2">
             <Label>Transcripción / notas largas (opcional)</Label>
             
-            <RichTextEditor value={transcript} onChange={setTranscript} />
+            <RichTextEditor value={transcript} onChange={handleTranscriptChange} />
           </div>
         </div>
       </ScrollArea>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSubmit} disabled={saving} className="bg-indigo-600 text-white hover:bg-indigo-500">
-          {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          {source ? 'Guardar cambios' : 'Crear fuente'}
-        </Button>
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground h-4">
+          {autoSaveStatus === 'saving' && (
+            <span className="flex items-center gap-1 text-slate-400">
+              <Loader2 className="size-3 animate-spin" /> Guardando…
+            </span>
+          )}
+          {autoSaveStatus === 'saved' && (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500">
+              <CheckCircle2 className="size-3" /> Guardado
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={saving} className="bg-indigo-600 text-white hover:bg-indigo-500">
+            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {source ? 'Guardar cambios' : 'Crear fuente'}
+          </Button>
+        </div>
       </div>
     </>
   );

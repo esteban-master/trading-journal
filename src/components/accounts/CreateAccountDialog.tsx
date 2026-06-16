@@ -61,6 +61,8 @@ const createAccountSchema = z.object({
   maxDrawdownPercentage: z.coerce.number().optional(),
   targetProfitPercentagePhase2: z.coerce.number().optional(),
   maxDrawdownPercentagePhase2: z.coerce.number().optional(),
+  targetProfitPercentagePhase3: z.coerce.number().optional(),
+  maxDrawdownPercentagePhase3: z.coerce.number().optional(),
   phase: z.coerce.number().optional(),
   totalPhases: z.coerce.number().optional(),
   profitSplit: z.coerce.number().min(0).max(100).optional(),
@@ -104,6 +106,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       maxDrawdownPercentage: 10,
       targetProfitPercentagePhase2: 5,
       maxDrawdownPercentagePhase2: 10,
+      targetProfitPercentagePhase3: 5,
+      maxDrawdownPercentagePhase3: 10,
       phase: 1,
       totalPhases: 2,
       profitSplit: 80,
@@ -136,6 +140,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : undefined,
         targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : undefined,
         maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : undefined,
+        targetProfitPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.targetProfitPercentagePhase3 : undefined,
+        maxDrawdownPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.maxDrawdownPercentagePhase3 : undefined,
         phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
         totalPhases: isEval ? values.totalPhases : undefined,
         profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
@@ -660,44 +666,109 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                       <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Reglas de Evaluación</h4>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="targetProfitPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Objetivo Profit Fase 1 (%)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="maxDrawdownPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Max Drawdown Fase 1 (%)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Selector de fases */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fases del Challenge</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([1, 2, 3] as const).map((n) => {
+                          const isSelected = (form.watch('totalPhases') ?? 2) === n
+                          return (
+                            <Button
+                              key={n}
+                              type="button"
+                              variant="outline"
+                              className={`flex flex-col items-center justify-center p-2 h-auto transition-colors ${
+                                isSelected
+                                  ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400'
+                                  : 'hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'
+                              }`}
+                              onClick={() => {
+                                form.setValue('totalPhases', n)
+                                if ((form.getValues('phase') ?? 1) > n) form.setValue('phase', n)
+                              }}
+                            >
+                              <span className={`font-bold text-sm ${isSelected ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                {n} {n === 1 ? 'Fase' : 'Fases'}
+                              </span>
+                            </Button>
+                          )
+                        })}
+                      </div>
                     </div>
 
-                    {(form.watch('totalPhases') || 1) >= 2 && (
-                      <>
-                        <div className="flex items-center gap-2 mt-2">
+                    {/* Fase Actual */}
+                    <FormField
+                      control={form.control}
+                      name="phase"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fase Actual</FormLabel>
+                          <Select
+                            onValueChange={(val) => field.onChange(Number(val))}
+                            value={String(field.value || 1)}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Fase actual" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {Array.from({ length: form.watch('totalPhases') ?? 1 }, (_, i) => i + 1).map((p) => (
+                                <SelectItem key={p} value={String(p)}>Fase {p}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Reglas Fase 1 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="size-4 text-indigo-500" />
+                        <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 1</h5>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="targetProfitPercentage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Objetivo Profit (%)</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="maxDrawdownPercentage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Max Drawdown (%)</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Reglas Fase 2 */}
+                    {(form.watch('totalPhases') ?? 2) >= 2 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
                           <TrendingUp className="size-4 text-indigo-400" />
                           <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 2</h5>
                         </div>
@@ -707,7 +778,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                             name="targetProfitPercentagePhase2"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Objetivo Profit Fase 2 (%)</FormLabel>
+                                <FormLabel>Objetivo Profit (%)</FormLabel>
                                 <FormControl>
                                   <div className="relative">
                                     <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
@@ -723,7 +794,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                             name="maxDrawdownPercentagePhase2"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Max Drawdown Fase 2 (%)</FormLabel>
+                                <FormLabel>Max Drawdown (%)</FormLabel>
                                 <FormControl>
                                   <div className="relative">
                                     <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
@@ -735,37 +806,52 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                             )}
                           />
                         </div>
-                      </>
+                      </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="phase"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Fase Actual</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="1" {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="totalPhases"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Total de Fases</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="1" {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    {/* Reglas Fase 3 */}
+                    {(form.watch('totalPhases') ?? 0) >= 3 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <TrendingUp className="size-4 text-indigo-300" />
+                          <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-400 uppercase">Reglas Fase 3</h5>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="targetProfitPercentagePhase3"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Objetivo Profit (%)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="maxDrawdownPercentagePhase3"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Max Drawdown (%)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input type="number" step="0.1" className="pl-3 pr-8" {...field} value={field.value || ''} />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
