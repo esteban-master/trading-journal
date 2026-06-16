@@ -34,6 +34,7 @@ const normalizeNote = (docId: string, data: DocumentData): Note => ({
   keyTakeaways: data.keyTakeaways ?? [],
   linkedTradeIds: data.linkedTradeIds ?? [],
   linkedAccountId: data.linkedAccountId,
+  images: data.images ?? [],
   createdAt: toIso(data.createdAt),
   updatedAt: data.updatedAt ? toIso(data.updatedAt) : undefined,
 });

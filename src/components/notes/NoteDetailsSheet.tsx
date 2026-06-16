@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Pencil, Trash2, FileText, Link2, Calendar } from 'lucide-react';
+import { Pencil, Trash2, FileText, Link2, Calendar, Images, ZoomIn } from 'lucide-react';
 import { Note, NoteCategory, NoteSource } from '@/types';
 import { useDeleteNote } from '@/hooks/useNotes';
 import { categoryChipClass } from '@/lib/apuntes';
@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { NoteFormDialog } from './NoteFormDialog';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface NoteDetailsSheetProps {
   note: Note | null;
@@ -28,6 +29,8 @@ interface NoteDetailsSheetProps {
 export function NoteDetailsSheet({ note, open, onOpenChange, categories, sources }: NoteDetailsSheetProps) {
   const deleteNote = useDeleteNote();
   const [editOpen, setEditOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const images = note?.images ?? [];
 
   const category = note ? categories.find((c) => c.slug === note.category) : undefined;
   const source = note?.sourceId ? sources.find((s) => s.id === note.sourceId) : undefined;
@@ -101,6 +104,30 @@ export function NoteDetailsSheet({ note, open, onOpenChange, categories, sources
                     ))}
                   </div>
                 )}
+
+                {images.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <h4 className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                      <Images className="size-4" />
+                      Imágenes adjuntas ({images.length})
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {images.map((url, idx) => (
+                        <button
+                          key={url}
+                          type="button"
+                          onClick={() => setLightboxIndex(idx)}
+                          className="group relative aspect-video overflow-hidden rounded-xl border bg-slate-950 transition-all hover:ring-2 hover:ring-indigo-500"
+                        >
+                          <img src={url} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                            <ZoomIn className="size-5 text-white" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background/95 p-4 backdrop-blur-sm">
@@ -130,6 +157,10 @@ export function NoteDetailsSheet({ note, open, onOpenChange, categories, sources
           categories={categories}
           sources={sources}
         />
+      )}
+
+      {images.length > 0 && (
+        <ImageLightbox images={images} index={lightboxIndex} onClose={() => setLightboxIndex(-1)} />
       )}
     </>
   );

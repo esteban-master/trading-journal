@@ -3,7 +3,11 @@ import { toast } from 'sonner';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { Note, NoteCategory, NoteSource } from '@/types';
 import { useCreateNote, useUpdateNote } from '@/hooks/useNotes';
+import { useAuthStore } from '@/store/useAuthStore';
+import { uploadImages } from '@/lib/uploadImages';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { ImageUploader } from '@/components/ui/image-uploader';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +17,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -69,7 +72,9 @@ interface NoteFormBodyProps {
 function NoteFormBody({ note, defaultSourceId, categories, sources, onClose }: NoteFormBodyProps) {
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
-  const saving = createNote.isPending || updateNote.isPending;
+  const { user } = useAuthStore();
+  const [uploading, setUploading] = useState(false);
+  const saving = createNote.isPending || updateNote.isPending || uploading;
 
   const [title, setTitle] = useState(note?.title ?? '');
   const [category, setCategory] = useState(note?.category ?? categories[0]?.slug ?? 'general');
@@ -77,6 +82,8 @@ function NoteFormBody({ note, defaultSourceId, categories, sources, onClose }: N
   const [tags, setTags] = useState((note?.tags ?? []).join(', '));
   const [content, setContent] = useState(note?.content ?? '');
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [files, setFiles] = useState<File[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(note?.images ?? []);
 
   const handleContentChange = async (html: string) => {
     setContent(html);
@@ -101,14 +108,26 @@ function NoteFormBody({ note, defaultSourceId, categories, sources, onClose }: N
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
-    const payload = {
-      title: title.trim(),
-      content,
-      category,
-      tags: parsedTags,
-      sourceId: sourceId === NO_SOURCE ? undefined : sourceId,
-    };
     try {
+      let imageUrls = existingImageUrls;
+      if (files.length > 0 && user) {
+        setUploading(true);
+        try {
+          const tempId = crypto.randomUUID();
+          const newUrls = await uploadImages(files, `notes/${user.uid}/${tempId}`);
+          imageUrls = [...existingImageUrls, ...newUrls];
+        } finally {
+          setUploading(false);
+        }
+      }
+      const payload = {
+        title: title.trim(),
+        content,
+        category,
+        tags: parsedTags,
+        sourceId: sourceId === NO_SOURCE ? undefined : sourceId,
+        images: imageUrls,
+      };
       if (note) {
         await updateNote.mutateAsync({ id: note.id, fields: payload });
         toast.success('Apunte actualizado');
@@ -174,6 +193,17 @@ function NoteFormBody({ note, defaultSourceId, categories, sources, onClose }: N
           <div className="flex flex-col gap-2">
             <Label>Contenido</Label>
             <RichTextEditor value={content} onChange={handleContentChange} />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label>Imágenes / capturas (opcional)</Label>
+            <ImageUploader
+              files={files}
+              onFilesChange={setFiles}
+              existingUrls={existingImageUrls}
+              onRemoveExisting={(url) => setExistingImageUrls((prev) => prev.filter((u) => u !== url))}
+              maxFiles={5}
+            />
           </div>
         </div>
       </ScrollArea>

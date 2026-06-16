@@ -136,6 +136,7 @@ export interface Note {
   keyTakeaways?: string[];       // bullets accionables (opcional)
   linkedTradeIds?: string[];     // vínculo a trades (array-contains)
   linkedAccountId?: string;      // vínculo a una cuenta
+  images?: string[];             // URLs de imágenes adjuntas
   createdAt: string;             // ISO date string
   updatedAt?: string;            // ISO date string
 }
