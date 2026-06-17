@@ -3,7 +3,7 @@ import { Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info, ShieldCheck } from 'lucide-react'
+import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info, ShieldCheck, Sparkles, Copy } from 'lucide-react'
 import { useCreateAccount } from '@/hooks/useAccounts'
 import {
   Dialog,
@@ -84,6 +84,46 @@ type CreateAccountValues = z.infer<typeof createAccountSchema>
 // ─── Common Firms ──────────────────────────────────────────────────────────────
 const FIRMS = ['Topstep', 'FTMO', 'FundedNext', 'WsFunded', 'Pepperstone', 'Otra']
 
+// ─── Account Templates ─────────────────────────────────────────────────────────
+interface AccountTemplate {
+  label: string
+  description: string
+  color: string
+  values: Partial<CreateAccountValues>
+}
+
+const ACCOUNT_TEMPLATES: AccountTemplate[] = [
+  {
+    label: 'Topstep 50k',
+    description: '1 fase · $49 · 50% split',
+    color: 'border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-950/40',
+    values: {
+      firm: 'Topstep',
+      status: 'Evaluation',
+      cost: 49,
+      startingBalance: 50000,
+      profitSplit: 50,
+      // Riesgo
+      baseRiskPercent: 4,
+      lossMultiplier: 1,
+      enableEquityScaling: false,
+      maxRiskPercent: 4,
+      // Centinela
+      dailyLossLimitPercent: 4,
+      maxConsecutiveLossesLockout: 1,
+      maxTradesPerDay: 1,
+      dailyProfitLockPercent: 3,
+      trailingDrawdown: true,
+      streakScope: 'allTrades',
+      // Evaluación
+      totalPhases: 1,
+      phase: 1,
+      targetProfitPercentage: 6,
+      maxDrawdownPercentage: 4,
+    },
+  },
+]
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 interface CreateAccountDialogProps {
   children?: React.ReactNode
@@ -91,8 +131,10 @@ interface CreateAccountDialogProps {
 
 export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
   const [open, setOpen] = useState(false)
+  const [bulkCount, setBulkCount] = useState(1)
+  const [bulkProgress, setBulkProgress] = useState(0)
   const createAccountMutation = useCreateAccount()
-  const saving = createAccountMutation.isPending
+  const saving = createAccountMutation.isPending || bulkProgress > 0
 
   const form = useForm<CreateAccountValues>({
     resolver: zodResolver(createAccountSchema) as unknown as Resolver<CreateAccountValues>,
@@ -124,46 +166,64 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
     },
   })
 
+  const buildPayload = (values: CreateAccountValues, name: string) => {
+    const isEval = values.status === 'Evaluation'
+    return {
+      name,
+      firm: values.firm,
+      status: values.status,
+      cost: values.status === 'Real' ? 0 : values.cost,
+      startingBalance: values.startingBalance,
+      currentBalance: values.startingBalance,
+      equity: values.startingBalance,
+      totalWithdrawals: 0,
+      targetProfitPercentage: isEval ? values.targetProfitPercentage : undefined,
+      maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : undefined,
+      targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : undefined,
+      maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : undefined,
+      targetProfitPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.targetProfitPercentagePhase3 : undefined,
+      maxDrawdownPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.maxDrawdownPercentagePhase3 : undefined,
+      phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
+      totalPhases: isEval ? values.totalPhases : undefined,
+      profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
+      baseRiskPercent: values.baseRiskPercent,
+      lossMultiplier: values.lossMultiplier,
+      enableEquityScaling: values.enableEquityScaling,
+      maxRiskPercent: values.maxRiskPercent,
+      dailyLossLimitPercent: values.dailyLossLimitPercent,
+      maxTradesPerDay: values.maxTradesPerDay,
+      maxConsecutiveLossesLockout: values.maxConsecutiveLossesLockout,
+      dailyProfitLockPercent: values.dailyProfitLockPercent,
+      trailingDrawdown: values.trailingDrawdown,
+      streakScope: values.streakScope,
+    }
+  }
+
   const onSubmit = async (values: CreateAccountValues) => {
     try {
-      const isEval = values.status === 'Evaluation'
-      await createAccountMutation.mutateAsync({
-        name: values.name,
-        firm: values.firm,
-        status: values.status,
-        cost: values.status === 'Real' ? 0 : values.cost,
-        startingBalance: values.startingBalance,
-        currentBalance: values.startingBalance,
-        equity: values.startingBalance,
-        totalWithdrawals: 0,
-        targetProfitPercentage: isEval ? values.targetProfitPercentage : undefined,
-        maxDrawdownPercentage: isEval ? values.maxDrawdownPercentage : undefined,
-        targetProfitPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.targetProfitPercentagePhase2 : undefined,
-        maxDrawdownPercentagePhase2: isEval && (values.totalPhases ?? 1) >= 2 ? values.maxDrawdownPercentagePhase2 : undefined,
-        targetProfitPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.targetProfitPercentagePhase3 : undefined,
-        maxDrawdownPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.maxDrawdownPercentagePhase3 : undefined,
-        phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
-        totalPhases: isEval ? values.totalPhases : undefined,
-        profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
-        baseRiskPercent: values.baseRiskPercent,
-        lossMultiplier: values.lossMultiplier,
-        enableEquityScaling: values.enableEquityScaling,
-        maxRiskPercent: values.maxRiskPercent,
-        dailyLossLimitPercent: values.dailyLossLimitPercent,
-        maxTradesPerDay: values.maxTradesPerDay,
-        maxConsecutiveLossesLockout: values.maxConsecutiveLossesLockout,
-        dailyProfitLockPercent: values.dailyProfitLockPercent,
-        trailingDrawdown: values.trailingDrawdown,
-        streakScope: values.streakScope,
-      })
-
-      toast.success('Cuenta creada exitosamente', {
-        description: `${values.name} ha sido añadida a tu portafolio.`,
-      })
+      if (bulkCount <= 1) {
+        await createAccountMutation.mutateAsync(buildPayload(values, values.name))
+        toast.success('Cuenta creada exitosamente', {
+          description: `${values.name} ha sido añadida a tu portafolio.`,
+        })
+      } else {
+        // Creación en lote — secuencial para no saturar Firestore
+        for (let i = 1; i <= bulkCount; i++) {
+          setBulkProgress(i)
+          const name = `${values.name} #${i}`
+          await createAccountMutation.mutateAsync(buildPayload(values, name))
+        }
+        setBulkProgress(0)
+        toast.success(`${bulkCount} cuentas creadas exitosamente`, {
+          description: `${values.name} #1 → #${bulkCount} añadidas al portafolio.`,
+        })
+      }
 
       form.reset()
+      setBulkCount(1)
       setOpen(false)
     } catch (err) {
+      setBulkProgress(0)
       console.error('Error al crear la cuenta:', err)
       toast.error('Error al crear la cuenta', {
         description: 'Verifica tu conexión o las credenciales de Firebase.',
@@ -182,7 +242,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col overflow-hidden p-6" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <Building2 className="size-5 text-indigo-500" />
@@ -195,36 +255,117 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
 
         <Separator />
 
+        {/* ─── Plantillas rápidas ─── */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="size-3.5 text-indigo-400" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Plantillas rápidas</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ACCOUNT_TEMPLATES.map((tpl) => (
+              <button
+                key={tpl.label}
+                type="button"
+                onClick={() => {
+                  Object.entries(tpl.values).forEach(([key, value]) => {
+                    form.setValue(key as keyof CreateAccountValues, value as never)
+                  })
+                  toast.info(`Plantilla "${tpl.label}" aplicada`)
+                }}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${tpl.color}`}
+              >
+                <div>
+                  <p className="text-xs font-bold leading-tight">{tpl.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{tpl.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 pt-1">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 min-h-0">
 
             {/* Contenedor scrollable para los campos */}
-            <ScrollArea className="h-[55vh] md:h-[60vh] pr-3">
+            <ScrollArea className="flex-1 min-h-0 pr-3">
               <div className="flex flex-col gap-5 pb-2">
-                {/* Nombre de la Cuenta */}
+                {/* Nombre de la Cuenta + Creación en lote */}
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nombre de la Cuenta</FormLabel>
+                      <FormLabel>Nombre base de la cuenta</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Layers className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                           <Input
-                            placeholder="ej. Topstep 50k #1"
+                            placeholder={bulkCount > 1 ? 'ej. 50k (se numerará #1, #2…)' : 'ej. Topstep 50k #1'}
                             className="pl-9"
                             {...field}
                           />
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Un alias que te permita identificar esta cuenta fácilmente.
+                        {bulkCount > 1
+                          ? `Se crearán ${bulkCount} cuentas: "${field.value || 'nombre'} #1" → "${field.value || 'nombre'} #${bulkCount}"`
+                          : 'Un alias que te permita identificar esta cuenta fácilmente.'}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {/* Selector de cantidad en lote */}
+                <div className="rounded-lg border border-border bg-muted/30 p-3 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <Copy className="size-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Creación en lote</span>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {[1, 2, 3, 5, 10].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setBulkCount(n)}
+                        className={`px-3 py-1.5 rounded-md text-sm font-semibold border transition-colors cursor-pointer ${
+                          bulkCount === n
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'border-border hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'
+                        }`}
+                      >
+                        {n === 1 ? '1 cuenta' : `${n} cuentas`}
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-xs text-muted-foreground">Personalizado:</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={bulkCount}
+                        onChange={(e) => setBulkCount(Math.min(20, Math.max(1, Number(e.target.value))))}
+                        className="w-16 h-8 text-center text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preview de nombres */}
+                  {bulkCount > 1 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border">
+                      {Array.from({ length: bulkCount }, (_, i) => (
+                        <span
+                          key={i}
+                          className="text-[11px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded font-medium"
+                        >
+                          {form.watch('name') || 'nombre'} #{i + 1}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   {/* Firma */}
@@ -869,10 +1010,20 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                 Cancelar
               </Button>
               <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 text-white">
-                {saving ? (
+                {bulkProgress > 0 ? (
+                  <>
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    Creando {bulkProgress}/{bulkCount}…
+                  </>
+                ) : saving ? (
                   <>
                     <Loader2 data-icon="inline-start" className="animate-spin" />
                     Guardando...
+                  </>
+                ) : bulkCount > 1 ? (
+                  <>
+                    <Copy data-icon="inline-start" />
+                    Crear {bulkCount} cuentas
                   </>
                 ) : (
                   <>
