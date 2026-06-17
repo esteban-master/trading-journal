@@ -167,3 +167,16 @@ export interface Reminder {
   createdAt: string;             // ISO date string
   updatedAt?: string;            // ISO date string
 }
+
+// --- Ciclos de Inversión ---
+export type InvestmentCycleStatus = 'active' | 'completed' | 'cancelled';
+
+export interface InvestmentCycle {
+  id: string;
+  userId: string;
+  name: string;                  // "Ciclo #1 – Junio 2026"
+  status: InvestmentCycleStatus;
+  startDate: string;             // ISO date — Día 1 del ciclo
+  accountIds: string[];          // IDs ordenados: índice 0 = posición 1, etc.
+  createdAt: string;             // ISO date string
+}

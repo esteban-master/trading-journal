@@ -21,6 +21,8 @@ const AccountDetail = lazy(() => import('@/pages/Accounts/AccountDetail'));
 const Notes = lazy(() => import('@/pages/Notes'));
 const SourceDetail = lazy(() => import('@/pages/Notes/SourceDetail'));
 const TopstepSim = lazy(() => import('@/pages/TopstepSim'));
+const CyclesList = lazy(() => import('@/pages/Cycles/CyclesList'));
+const CycleDetail = lazy(() => import('@/pages/Cycles/CycleDetail'));
 // const TradingCalendar = lazy(() => import('@/pages/Calendar/TradingCalendar'));
 // const RiskManager = lazy(() => import('@/components/risk/RiskManager'));
 const Login = lazy(() => import('@/pages/Login'));
@@ -47,6 +49,8 @@ function AppRoutes() {
               <Route path="/apuntes" element={<Notes />} />
               <Route path="/apuntes/fuentes/:id" element={<SourceDetail />} />
               <Route path="/topstep" element={<TopstepSim />} />
+              <Route path="/ciclos" element={<CyclesList />} />
+              <Route path="/ciclos/:id" element={<CycleDetail />} />
               {/* <Route path="/calendar" element={<TradingCalendar />} />
               <Route path="/risk" element={<RiskManager />} /> */}
             </Route>

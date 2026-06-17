@@ -1,7 +1,7 @@
 import { DollarSign, Wallet, TrendingUp, ArrowRight, Activity, Flame, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateAccountDialog } from '@/components/accounts/CreateAccountDialog';
@@ -41,66 +41,69 @@ export default function AccountsList() {
   const activeAccounts = accounts.filter(account => account.status !== 'Blown');
   const blownAccounts = accounts.filter(account => account.status === 'Blown');
 
-  const renderAccountCard = (account: Account) => {
+  const renderAccountRow = (account: Account) => {
     const isFunded = account.status === 'Funded';
     const isBlown = account.status === 'Blown';
+    const netWithdrawals = getAccountNetWithdrawals(account);
+    const pnl = account.currentBalance - account.startingBalance;
 
     return (
-      <Card key={account.id} className="flex flex-col hover:border-indigo-500/50 transition-colors shadow-sm duration-200">
-        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex justify-between items-start gap-4">
-            <div className="min-w-0 flex-1">
-              <CardTitle className="text-lg font-bold truncate text-slate-900 dark:text-white" title={account.name}>
-                {account.name}
-              </CardTitle>
-              <CardDescription className="mt-1 truncate">
-                {account.firm} • ${account.startingBalance.toLocaleString()}
-              </CardDescription>
-            </div>
+      <Link key={account.id} to={`/accounts/${account.id}`}>
+        <div className="flex items-center gap-4 px-4 py-3 rounded-lg border border-border hover:border-indigo-500/40 hover:bg-muted/30 transition-all cursor-pointer group">
+          {/* Status dot */}
+          <div className={`size-2 rounded-full shrink-0 ${
+            isFunded ? 'bg-emerald-500' : isBlown ? 'bg-red-500' : 'bg-blue-400'
+          }`} />
+
+          {/* Nombre + firma */}
+          <div className="min-w-0 flex-[2]">
+            <p className="font-semibold text-sm truncate">{account.name}</p>
+            <p className="text-xs text-muted-foreground">{account.firm}</p>
+          </div>
+
+          {/* Badge */}
+          <div className="shrink-0 hidden sm:block">
             <Badge
               variant={isFunded ? 'success' : isBlown ? 'destructive' : account.status === 'Real' ? 'default' : 'info'}
-              className="shrink-0"
+              className="text-[11px]"
             >
               {account.status === 'Real' ? 'Real' : account.status}
             </Badge>
           </div>
-        </CardHeader>
-        <CardContent className="py-4 flex-1">
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">Balance Actual</span>
-              <span className={`font-semibold ${account.currentBalance >= account.startingBalance ? 'text-emerald-500' : 'text-rose-500'}`}>
-                ${account.currentBalance.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">Costo</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
-                ${account.cost}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">Retiros (Neto)</span>
-              <span className="font-semibold text-emerald-500">
-                ${getAccountNetWithdrawals(account).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">Retiros (Bruto)</span>
-              <span className="font-semibold text-slate-600 dark:text-slate-400">
-                ${account.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
+
+          {/* Balance */}
+          <div className="text-right shrink-0 hidden md:block w-28">
+            <p className="text-xs text-muted-foreground">Balance</p>
+            <p className={`text-sm font-semibold ${account.currentBalance >= account.startingBalance ? 'text-emerald-500' : 'text-rose-500'}`}>
+              ${account.currentBalance.toLocaleString()}
+            </p>
           </div>
-        </CardContent>
-        <div className="p-4 pt-0 mt-auto">
-          <Link to={`/accounts/${account.id}`} className="w-full">
-            <button className="w-full flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer">
-              Ver Detalles <ArrowRight className="size-4" />
-            </button>
-          </Link>
+
+          {/* PNL */}
+          <div className="text-right shrink-0 hidden md:block w-24">
+            <p className="text-xs text-muted-foreground">P&L</p>
+            <p className={`text-sm font-semibold ${pnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}
+            </p>
+          </div>
+
+          {/* Costo */}
+          <div className="text-right shrink-0 hidden lg:block w-20">
+            <p className="text-xs text-muted-foreground">Costo</p>
+            <p className="text-sm font-semibold">${account.cost}</p>
+          </div>
+
+          {/* Retiros neto */}
+          <div className="text-right shrink-0 hidden lg:block w-28">
+            <p className="text-xs text-muted-foreground">Retiros neto</p>
+            <p className="text-sm font-semibold text-emerald-500">
+              ${netWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+
+          <ArrowRight className="size-4 text-muted-foreground group-hover:text-indigo-400 transition-colors shrink-0 ml-auto" />
         </div>
-      </Card>
+      </Link>
     );
   };
 
@@ -177,21 +180,25 @@ export default function AccountsList() {
           </TabsList>
         </div>
 
+        {/* Header de columnas */}
+        {!loading && (
+          <div className="flex items-center gap-4 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="size-2 shrink-0" />
+            <div className="flex-[2]">Cuenta</div>
+            <div className="shrink-0 hidden sm:block w-20">Estado</div>
+            <div className="text-right shrink-0 hidden md:block w-28">Balance</div>
+            <div className="text-right shrink-0 hidden md:block w-24">P&L</div>
+            <div className="text-right shrink-0 hidden lg:block w-20">Costo</div>
+            <div className="text-right shrink-0 hidden lg:block w-28">Retiros neto</div>
+            <div className="size-4 shrink-0 ml-auto" />
+          </div>
+        )}
+
         {/* Estado de carga */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="flex flex-col">
-                <CardHeader className="pb-4 border-b border-border">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2 mt-1" />
-                </CardHeader>
-                <CardContent className="py-4 flex flex-col gap-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                </CardContent>
-              </Card>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
             ))}
           </div>
         ) : (
@@ -211,8 +218,8 @@ export default function AccountsList() {
                   </div>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {activeAccounts.map(renderAccountCard)}
+                <div className="flex flex-col gap-1.5">
+                  {activeAccounts.map(renderAccountRow)}
                 </div>
               )}
             </TabsContent>
@@ -229,8 +236,8 @@ export default function AccountsList() {
                   </p>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {blownAccounts.map(renderAccountCard)}
+                <div className="flex flex-col gap-1.5">
+                  {blownAccounts.map(renderAccountRow)}
                 </div>
               )}
             </TabsContent>
