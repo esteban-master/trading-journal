@@ -20,6 +20,7 @@ const AccountsList = lazy(() => import('@/pages/Accounts/AccountsList'));
 const AccountDetail = lazy(() => import('@/pages/Accounts/AccountDetail'));
 const Notes = lazy(() => import('@/pages/Notes'));
 const SourceDetail = lazy(() => import('@/pages/Notes/SourceDetail'));
+const TopstepSim = lazy(() => import('@/pages/TopstepSim'));
 // const TradingCalendar = lazy(() => import('@/pages/Calendar/TradingCalendar'));
 // const RiskManager = lazy(() => import('@/components/risk/RiskManager'));
 const Login = lazy(() => import('@/pages/Login'));
@@ -45,6 +46,7 @@ function AppRoutes() {
               <Route path="/accounts/:id" element={<AccountDetail />} />
               <Route path="/apuntes" element={<Notes />} />
               <Route path="/apuntes/fuentes/:id" element={<SourceDetail />} />
+              <Route path="/topstep" element={<TopstepSim />} />
               {/* <Route path="/calendar" element={<TradingCalendar />} />
               <Route path="/risk" element={<RiskManager />} /> */}
             </Route>

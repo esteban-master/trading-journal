@@ -1,4 +1,4 @@
-import { Home, Wallet, BookOpen, LogOut, ChevronsUpDown } from 'lucide-react'
+import { Home, Wallet, BookOpen, LogOut, ChevronsUpDown, BarChart2 } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/config/firebase'
@@ -41,6 +41,11 @@ const items = [
     title: 'Apuntes',
     url: '/apuntes',
     icon: BookOpen
+  },
+  {
+    title: 'Simulador Topstep',
+    url: '/topstep',
+    icon: BarChart2
   },
   // {
   //   title: 'Calendario',
