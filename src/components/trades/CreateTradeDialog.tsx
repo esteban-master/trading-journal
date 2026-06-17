@@ -108,11 +108,15 @@ const tradeSchema = z.object({
 
 type TradeValues = z.infer<typeof tradeSchema>;
 
-export default function CreateTradeDialog() {
+interface CreateTradeDialogProps {
+  defaultAccountId?: string;
+}
+
+export default function CreateTradeDialog({ defaultAccountId: propAccountId }: CreateTradeDialogProps = {}) {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const defaultAccountId = searchParams.get('accountId') || '';
+  const defaultAccountId = propAccountId || searchParams.get('accountId') || '';
 
   const { data: accounts = [] } = useAccounts();
   const createTradeMutation = useCreateTrade();
@@ -265,7 +269,7 @@ export default function CreateTradeDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus data-icon="inline-start" />
-          Registrar Nuevo Trade
+          Nuevo Trade
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[850px] w-[95vw]" onPointerDownOutside={(e) => e.preventDefault()}>

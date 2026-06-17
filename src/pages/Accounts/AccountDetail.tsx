@@ -26,6 +26,7 @@ import EvaluationPanel from '@/components/accounts/EvaluationPanel';
 import { TradesList } from '../../components/accounts/detail/AccountTradesList';
 import { AccountPhaseSelector } from '../../components/accounts/detail/AccountPhaseSelector';
 import { EditAccountDialog } from '@/components/accounts/EditAccountDialog';
+import CreateTradeDialog from '@/components/trades/CreateTradeDialog';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { AccountWithDrawals } from '../../components/accounts/detail/AccountWithDrawals';
 import { AccountEquityChart } from '../../components/accounts/detail/AccountEquityChart';
@@ -165,6 +166,7 @@ export default function AccountDetail() {
         </div>
 
         <div className="flex items-center gap-3">
+          <CreateTradeDialog defaultAccountId={id ?? ''} />
           <EditAccountDialog account={account} />
           {/* Phase Selector Tabs */}
           {account.status !== 'Real' && <AccountPhaseSelector />}
