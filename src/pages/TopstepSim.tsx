@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import {
   BarChart,
@@ -544,7 +545,7 @@ export default function TopstepSim() {
                   <XAxis dataKey="k" tick={{ fontSize: 11 }} />
                   <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} tick={{ fontSize: 11 }} width={40} />
                   <Tooltip
-                    formatter={(v: number) => [`${v.toFixed(2)}%`, 'Probabilidad']}
+                    formatter={(v: any) => [`${Number(v).toFixed(2)}%`, 'Probabilidad']}
                     labelFormatter={(l) => `${l} cuentas pasan`}
                     contentStyle={{ fontSize: 12 }}
                   />
@@ -689,8 +690,8 @@ export default function TopstepSim() {
                       <XAxis dataKey="k" tick={{ fontSize: 11 }} />
                       <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} tick={{ fontSize: 11 }} width={40} />
                       <Tooltip
-                        formatter={(v: number, _: string, props: { payload?: { count?: number } }) => [
-                          `${v.toFixed(2)}% (${props.payload?.count ?? 0} veces)`,
+                        formatter={(v: any, _: any, props: any) => [
+                          `${Number(v).toFixed(2)}% (${props.payload?.count ?? 0} veces)`,
                           'Frecuencia',
                         ]}
                         labelFormatter={(l) => `${l} cuentas pasan`}

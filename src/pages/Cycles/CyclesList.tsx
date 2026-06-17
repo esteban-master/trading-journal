@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { RefreshCw, CheckCircle2, XCircle, Clock, ChevronRight } from 'lucide-react';
+import { RefreshCw, Clock, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
