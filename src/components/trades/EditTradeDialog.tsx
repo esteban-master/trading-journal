@@ -3,10 +3,13 @@ import { Resolver, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, Info, Pencil, Brain } from 'lucide-react';
+import { Loader2, Info, Pencil, Brain, ImageUp } from 'lucide-react';
 import { useUpdateTrade } from '@/hooks/useTrades';
 import { Trade, EmotionalState, TradeSession } from '@/types';
 import { guessSession, SESSION_LABELS } from '@/lib/tradeStats';
+import { useAuthStore } from '@/store/useAuthStore';
+import { uploadTradeImages } from '@/lib/uploadTradeImages';
+import { ImageUploader } from '@/components/ui/image-uploader';
 import {
   Form,
   FormControl,
@@ -81,7 +84,11 @@ interface EditTradeDialogProps {
 
 export function EditTradeDialog({ trade }: EditTradeDialogProps) {
   const [open, setOpen] = useState(false);
+  const [existingImages, setExistingImages] = useState<string[]>(trade.images ?? []);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   const updateTrade = useUpdateTrade();
+  const { user } = useAuthStore();
 
   const defaultValues = (): EditTradeValues => ({
     asset: trade.asset,
@@ -106,15 +113,31 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
     defaultValues: defaultValues(),
   });
 
-  // Reset form with fresh trade values each time the dialog opens
+  // Reset form and image state each time the dialog opens
   useEffect(() => {
-    if (open) form.reset(defaultValues());
+    if (open) {
+      form.reset(defaultValues());
+      setExistingImages(trade.images ?? []);
+      setNewFiles([]);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const onSubmit = async (values: EditTradeValues) => {
     try {
       const pnlDiff = values.pnl - trade.pnl;
+
+      // Upload any new images, then merge with kept existing ones
+      let uploadedUrls: string[] = [];
+      if (newFiles.length > 0 && user) {
+        setUploading(true);
+        try {
+          uploadedUrls = await uploadTradeImages(newFiles, user.uid, trade.id);
+        } finally {
+          setUploading(false);
+        }
+      }
+      const finalImages = [...existingImages, ...uploadedUrls];
 
       await updateTrade.mutateAsync({
         id: trade.id,
@@ -130,6 +153,7 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
           description: values.description ?? '',
           riskRewardRatio: values.riskReward ?? 0,
           riskPercent: values.riskPercent,
+          images: finalImages,
           date: new Date(values.date).toISOString(),
           exitDate: values.exitDate ? new Date(values.exitDate).toISOString() : undefined,
           session: (values.session || undefined) as TradeSession | undefined,
@@ -508,6 +532,18 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
                   />
                 </div>
 
+                {/* Imágenes */}
+                <div className="space-y-2">
+                  <FormLabel>Evidencia (Imágenes)</FormLabel>
+                  <ImageUploader
+                    files={newFiles}
+                    onFilesChange={setNewFiles}
+                    existingUrls={existingImages}
+                    onRemoveExisting={(url) => setExistingImages((prev) => prev.filter((u) => u !== url))}
+                    maxFiles={3}
+                  />
+                </div>
+
               </div>
             </ScrollArea>
 
@@ -516,16 +552,21 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
                 variant="outline"
                 type="button"
                 onClick={() => setOpen(false)}
-                disabled={updateTrade.isPending}
+                disabled={updateTrade.isPending || uploading}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={updateTrade.isPending}
+                disabled={updateTrade.isPending || uploading}
                 className="bg-amber-500 hover:bg-amber-400 text-white font-bold"
               >
-                {updateTrade.isPending ? (
+                {uploading ? (
+                  <>
+                    <ImageUp className="animate-pulse mr-2 size-4" />
+                    Subiendo imágenes…
+                  </>
+                ) : updateTrade.isPending ? (
                   <>
                     <Loader2 className="animate-spin mr-2 size-4" />
                     Guardando...
