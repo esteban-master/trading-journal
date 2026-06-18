@@ -64,6 +64,8 @@ export interface Trade {
   status: TradeStatus;
   phase?: number;
 
+  stopLossPips?: number;            // pips de Stop Loss usados en la entrada
+
   // Centinela de Riesgo: control emocional / disciplina
   emotionalState?: EmotionalState; // estado mental al operar
   disciplineScore?: number;        // 1-5 adherencia al plan (proceso, no resultado)

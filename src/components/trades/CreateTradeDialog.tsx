@@ -104,6 +104,7 @@ const tradeSchema = z.object({
   followedPlan: z.boolean().optional(),
   exitDate: z.string().optional(),
   session: z.string().optional(),
+  stopLossPips: z.coerce.number({ error: 'Número inválido' }).optional(),
 });
 
 type TradeValues = z.infer<typeof tradeSchema>;
@@ -147,6 +148,7 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
       date: getLocalDateTimeString(),
       exitDate: '',
       session: guessSession(getLocalDateTimeString()),
+      stopLossPips: undefined,
       emotionalState: undefined,
       disciplineScore: 3,
       followedPlan: true,
@@ -227,6 +229,7 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
         date: new Date(values.date).toISOString(),
         exitDate: values.exitDate ? new Date(values.exitDate).toISOString() : undefined,
         session: (values.session || undefined) as TradeSession | undefined,
+        stopLossPips: values.stopLossPips,
         emotionalState: values.emotionalState as EmotionalState | undefined,
         disciplineScore: values.disciplineScore,
         followedPlan: values.followedPlan,
@@ -478,8 +481,8 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Estrategia, R:R y Riesgo Tomado */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* Estrategia, R:R, Riesgo Tomado y SL Pips */}
                     <FormField
                       control={form.control}
                       name="strategy"
@@ -538,6 +541,31 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
                           </FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="ej. 0.55" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="stopLossPips"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            SL (Pips)
+                            <TooltipProvider>
+                              <Tooltip delayDuration={300}>
+                                <TooltipTrigger asChild>
+                                  <Info className="size-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[280px] p-3 shadow-lg border-primary/20">
+                                  <p className="text-sm">Pips de Stop Loss usados al entrar al trade. Útil para comparar el tamaño de tu riesgo entre operaciones.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.1" placeholder="ej. 10" {...field} value={field.value ?? ''} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -71,6 +71,7 @@ const editTradeSchema = z.object({
   date: z.string().min(1, 'Selecciona la fecha y hora'),
   exitDate: z.string().optional(),
   session: z.string().optional(),
+  stopLossPips: z.coerce.number({ error: 'Número inválido' }).optional(),
   emotionalState: z.string().optional(),
   disciplineScore: z.coerce.number().min(1).max(5).optional(),
   followedPlan: z.boolean().optional(),
@@ -103,6 +104,7 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
     date: isoToLocal(trade.date),
     exitDate: isoToLocal(trade.exitDate),
     session: trade.session ?? '',
+    stopLossPips: trade.stopLossPips,
     emotionalState: trade.emotionalState,
     disciplineScore: trade.disciplineScore ?? 3,
     followedPlan: trade.followedPlan ?? true,
@@ -157,6 +159,7 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
           date: new Date(values.date).toISOString(),
           exitDate: values.exitDate ? new Date(values.exitDate).toISOString() : undefined,
           session: (values.session || undefined) as TradeSession | undefined,
+          stopLossPips: values.stopLossPips,
           emotionalState: values.emotionalState as EmotionalState | undefined,
           disciplineScore: values.disciplineScore,
           followedPlan: values.followedPlan,
@@ -306,7 +309,7 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
                     name="strategy"
@@ -353,6 +356,31 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
                         <FormLabel>Riesgo Tomado (%)</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" placeholder="ej. 0.55" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="stopLossPips"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          SL (Pips)
+                          <TooltipProvider>
+                            <Tooltip delayDuration={300}>
+                              <TooltipTrigger asChild>
+                                <Info className="size-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[260px] p-3">
+                                <p className="text-sm">Pips de Stop Loss usados al entrar al trade.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" placeholder="ej. 10" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

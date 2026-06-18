@@ -50,6 +50,7 @@ const normalizeTrade = (docId: string, data: DocumentData): Trade => {
     disciplineScore: data.disciplineScore,
     followedPlan: data.followedPlan,
     isRevenge: data.isRevenge,
+    stopLossPips: data.stopLossPips ?? undefined,
   };
 };
 
@@ -135,6 +136,7 @@ export function useCreateTrade() {
         disciplineScore: newTrade.disciplineScore ?? null,
         followedPlan: newTrade.followedPlan ?? null,
         isRevenge: newTrade.isRevenge ?? null,
+        stopLossPips: newTrade.stopLossPips ?? null,
       });
 
       // 3. Update account balance using decimal.js
