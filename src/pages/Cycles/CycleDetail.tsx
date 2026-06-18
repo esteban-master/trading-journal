@@ -580,22 +580,20 @@ function TopstepProgressRow({
             </span>
           </div>
 
-          {/* Proyección de días restantes (solo con estrategia seleccionada) */}
-          {strat && !tp.isPassed && !tp.isBlownByDD && (
+          {/* Proyección de días restantes (solo con estrategia seleccionada y datos reales) */}
+          {strat && !tp.isPassed && !tp.isBlownByDD && tp.tradingDays > 0 && (
             <div className="flex items-center gap-1 text-[11px]">
               <span className="text-muted-foreground">Proyección:</span>
-              <span className="font-semibold" style={{ color: strat.color }}>
+              <span className="font-semibold" style={{ color: daysLeft === null ? '#ef4444' : strat.color }}>
                 {daysLeft === null
                   ? 'EV negativo'
                   : daysLeft === 0
                   ? '¡Ya cumplió!'
                   : `~${daysLeft} días más`}
               </span>
-              {tp.tradingDays > 0 && (
-                <span className="text-muted-foreground">
-                  ({(tp.impliedWinRate * 100).toFixed(0)}% W real)
-                </span>
-              )}
+              <span className="text-muted-foreground">
+                ({(tp.impliedWinRate * 100).toFixed(0)}% W real)
+              </span>
             </div>
           )}
         </div>

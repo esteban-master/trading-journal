@@ -1,5 +1,8 @@
 import { Trade, InvestmentCycle, Account } from '@/types';
 import { differenceInCalendarDays } from 'date-fns';
+import { TZDate } from '@date-fns/tz';
+
+const CHILE_TZ = 'America/Santiago';
 
 export type CycleAccountStatus =
   | 'pending'
@@ -152,8 +155,10 @@ export function computeCycleAccountStatus(
 export function getTodayPosition(
   cycle: InvestmentCycle
 ): number | null {
-  const start = new Date(cycle.startDate);
-  const today = new Date();
+  // Ambas fechas en zona horaria Chile para que "2026-06-18" sea siempre
+  // el 18 de junio sin importar el offset UTC del browser.
+  const start = new TZDate(cycle.startDate + 'T00:00:00', CHILE_TZ);
+  const today = new TZDate(new Date(), CHILE_TZ);
   today.setHours(0, 0, 0, 0);
   start.setHours(0, 0, 0, 0);
 
@@ -212,7 +217,7 @@ export function buildCycleRows(
     }
 
     const accountTrades = allTrades.filter((t) => t.accountId === accountId);
-    const { status, day1Pnl, day2Pnl } = computeCycleAccountStatus(accountTrades);
+    const { status: simpleStatus, day1Pnl, day2Pnl } = computeCycleAccountStatus(accountTrades);
 
     const isTopstep = account.firm?.toLowerCase().includes('topstep');
     const topstepProgress = isTopstep
@@ -223,6 +228,22 @@ export function buildCycleRows(
           account.startingBalance ? account.startingBalance * 0.04 : 2_000,
         )
       : undefined;
+
+    // Para cuentas Topstep, el estado del ciclo se deriva del trailing DD real,
+    // no de si el primer trade fue positivo o negativo.
+    let status = simpleStatus;
+    if (isTopstep && topstepProgress) {
+      const { isBlownByDD, isPassed, tradingDays } = topstepProgress;
+      if (isPassed) {
+        status = 'passed';
+      } else if (isBlownByDD) {
+        status = tradingDays <= 1 ? 'blown_day1' : 'blown_day2';
+      } else if (tradingDays > 0) {
+        status = 'day1_won'; // en progreso: tiene trades pero no está quemada
+      } else {
+        status = 'pending';
+      }
+    }
 
     return {
       position,
