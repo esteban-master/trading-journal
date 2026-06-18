@@ -213,6 +213,14 @@ const columns: ColumnDef<Trade>[] = [
     },
   },
   {
+    accessorKey: 'stopLossPips',
+    header: 'SL (Pips)',
+    cell: ({ row }) => {
+      const sl = row.getValue('stopLossPips') as number | null | undefined;
+      return sl ? <span className="text-slate-600 dark:text-slate-350 font-medium">{sl} pips</span> : <span className="text-slate-400">—</span>;
+    },
+  },
+  {
     id: 'images',
     header: 'Capturas',
     cell: ({ row }) => <ImagesCellButton images={row.original.images || []} />,
