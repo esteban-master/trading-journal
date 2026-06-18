@@ -18,7 +18,8 @@ import {
   Loader2,
   Wallet,
   PiggyBank,
-  ArrowUpFromLine
+  ArrowUpFromLine,
+  FlaskConical,
 } from "lucide-react"
 import { Link } from 'react-router'
 import { useAccounts } from "@/hooks/useAccounts"
@@ -132,13 +133,23 @@ export default function Dashboard() {
   }
 
   // --- CÁLCULOS DE MÉTRICAS GLOBALES ---
-  const activeAccounts = accounts.filter(a => a.status !== 'Blown')
+  // Demo accounts are fully separated from real-money metrics
+  const demoAccounts = accounts.filter(a => a.status === 'Demo')
+  const demoAccountIds = new Set(demoAccounts.map(a => a.id))
+  const activeAccounts = accounts.filter(a => a.status !== 'Blown' && a.status !== 'Demo')
   const totalBalance = activeAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0)
-  // Base de capital de TODO el historial (incl. quemadas) para el drawdown global
-  const allStartingBalance = accounts.reduce((sum, acc) => sum + acc.startingBalance, 0)
+  // Base de capital de TODO el historial real (incl. quemadas, excl. demo) para el drawdown global
+  const allStartingBalance = accounts
+    .filter(a => a.status !== 'Demo')
+    .reduce((sum, acc) => sum + acc.startingBalance, 0)
 
-  // Filtrar trades cerrados
-  const closedTrades = trades.filter(t => t.status === 'Closed' || t.exitPrice !== undefined)
+  // Filtrar trades — separar demo de reales
+  const closedTrades = trades
+    .filter(t => !demoAccountIds.has(t.accountId))
+    .filter(t => t.status === 'Closed' || t.exitPrice !== undefined)
+  const demoClosedTrades = trades
+    .filter(t => demoAccountIds.has(t.accountId))
+    .filter(t => t.status === 'Closed' || t.exitPrice !== undefined)
   const totalTradesCount = closedTrades.length
 
   const winningTrades = closedTrades.filter(t => t.pnl > 0)
@@ -259,8 +270,9 @@ export default function Dashboard() {
     }
   })
 
-  // Historial de Operaciones Recientes (Top 5)
+  // Historial de Operaciones Recientes (Top 5) — solo cuentas reales
   const recentTrades = [...trades]
+    .filter(t => !demoAccountIds.has(t.accountId))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
 
@@ -309,7 +321,7 @@ export default function Dashboard() {
   const totalRealWithdrawals = realWithdrawals.reduce((sum, w) => sum + (w.amount || 0), 0); // Real no tiene profit split
   const totalWithdrawalsOverall = totalFundedWithdrawals + totalRealWithdrawals;
 
-  const totalCost = accounts.reduce((sum, a) => sum + (a.cost || 0), 0);
+  const totalCost = accounts.filter(a => a.status !== 'Demo').reduce((sum, a) => sum + (a.cost || 0), 0);
   const netProfit = totalWithdrawalsOverall - totalCost;
   const globalROI = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
   const globalROIStr = totalCost > 0 ? `${globalROI >= 0 ? '+' : ''}${globalROI.toFixed(2)}%` : (totalWithdrawalsOverall > 0 ? 'Max' : '0.0%');
@@ -537,6 +549,55 @@ export default function Dashboard() {
         <span className="text-slate-300 dark:text-slate-700">•</span>
         <span className="inline-flex items-center gap-1"><Activity className="size-3 text-emerald-400" /> <strong className="font-semibold text-slate-500 dark:text-slate-400">Desempeño</strong> (Win rate / Profit factor / R:R / rachas): todo tu historial, incl. cuentas quemadas.</span>
       </p>
+
+      {/* Demo Lab — sección separada, visible solo cuando hay cuentas Demo */}
+      {demoAccounts.length > 0 && (() => {
+        const demoWinners = demoClosedTrades.filter(t => t.pnl > 0)
+        const demoLosers = demoClosedTrades.filter(t => t.pnl < 0)
+        const demoWinRate = demoClosedTrades.length > 0 ? (demoWinners.length / demoClosedTrades.length) * 100 : 0
+        const demoGrossProfit = demoWinners.reduce((s, t) => s + t.pnl, 0)
+        const demoGrossLoss = demoLosers.reduce((s, t) => s + Math.abs(t.pnl), 0)
+        const demoPF = demoGrossLoss > 0 ? (demoGrossProfit / demoGrossLoss).toFixed(2) : demoGrossProfit > 0 ? 'Max' : '0.00'
+        const demoPnL = demoClosedTrades.reduce((s, t) => s + t.pnl, 0)
+        const demoBalance = demoAccounts.reduce((s, a) => s + a.currentBalance, 0)
+
+        return (
+          <div className="rounded-xl border border-sky-200 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/10 p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <FlaskConical className="size-4 text-sky-500" />
+              <h3 className="text-sm font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wide">Demo Lab / Backtesting</h3>
+              <Badge variant="secondary" className="ml-auto text-[10px] bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                {demoAccounts.length} cuenta{demoAccounts.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+            <p className="text-xs text-sky-700 dark:text-sky-400 -mt-2">
+              Métricas de tus operaciones de backtesting. No impactan el Dashboard real.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-lg bg-white dark:bg-slate-900/60 border border-sky-100 dark:border-sky-900/30 p-3">
+                <p className="text-[10px] font-semibold uppercase text-sky-500 dark:text-sky-400">Balance Demo</p>
+                <p className="text-lg font-extrabold text-slate-900 dark:text-white mt-0.5">${demoBalance.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900/60 border border-sky-100 dark:border-sky-900/30 p-3">
+                <p className="text-[10px] font-semibold uppercase text-sky-500 dark:text-sky-400">P&L Acumulado</p>
+                <p className={`text-lg font-extrabold mt-0.5 ${demoPnL >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {demoPnL >= 0 ? '+' : ''}${demoPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900/60 border border-sky-100 dark:border-sky-900/30 p-3">
+                <p className="text-[10px] font-semibold uppercase text-sky-500 dark:text-sky-400">Win Rate</p>
+                <p className="text-lg font-extrabold text-slate-900 dark:text-white mt-0.5">{Math.round(demoWinRate)}%</p>
+                <p className="text-[10px] text-slate-400">{demoWinners.length}W / {demoLosers.length}L</p>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900/60 border border-sky-100 dark:border-sky-900/30 p-3">
+                <p className="text-[10px] font-semibold uppercase text-sky-500 dark:text-sky-400">Profit Factor</p>
+                <p className="text-lg font-extrabold text-slate-900 dark:text-white mt-0.5">{demoPF}</p>
+                <p className="text-[10px] text-slate-400">{demoClosedTrades.length} operaciones</p>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Tabs Principales de Visualización */}
       <Tabs defaultValue="overview" className="w-full">

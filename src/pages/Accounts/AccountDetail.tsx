@@ -16,6 +16,7 @@ import {
   Briefcase,
   Landmark,
   BookOpen,
+  FlaskConical,
 } from 'lucide-react';
 import { useReminders } from '@/hooks/useReminders';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -136,6 +137,7 @@ export default function AccountDetail() {
 
   const isFunded = account.status === 'Funded';
   const isBlown = account.status === 'Blown';
+  const isDemo = account.status === 'Demo';
 
   // Límite de drawdown activo según la fase visualizada (para el Centinela)
   const activeMaxDrawdown = viewPhase === 2 && account.maxDrawdownPercentagePhase2
@@ -155,8 +157,11 @@ export default function AccountDetail() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
               {account.name}
-              <Badge variant={isFunded ? 'success' : isBlown ? 'destructive' : account.status === 'Real' ? 'default' : 'info'}>
-                {account.status === 'Real' ? 'Real' : account.status}
+              <Badge
+                variant={isFunded ? 'success' : isBlown ? 'destructive' : isDemo ? 'secondary' : account.status === 'Real' ? 'default' : 'info'}
+                className={isDemo ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' : ''}
+              >
+                {account.status === 'Real' ? 'Real' : isDemo ? 'Demo 🧪' : account.status}
               </Badge>
             </h1>
             <p className="text-sm text-slate-500">
@@ -169,12 +174,22 @@ export default function AccountDetail() {
           <CreateTradeDialog defaultAccountId={id ?? ''} />
           <EditAccountDialog account={account} />
           {/* Phase Selector Tabs */}
-          {account.status !== 'Real' && <AccountPhaseSelector />}
+          {account.status !== 'Real' && !isDemo && <AccountPhaseSelector />}
         </div>
       </div>
 
       {/* Panel de Evaluación (Condicional) */}
-      {account.status !== 'Real' && <EvaluationPanel account={account} />}
+      {account.status !== 'Real' && !isDemo && <EvaluationPanel account={account} />}
+
+      {/* Banner Demo */}
+      {isDemo && (
+        <div className="rounded-xl border border-sky-200 dark:border-sky-900/40 bg-sky-50/60 dark:bg-sky-950/20 px-4 py-3 flex items-center gap-3">
+          <FlaskConical className="size-4 text-sky-500 shrink-0" />
+          <p className="text-sm text-sky-800 dark:text-sky-300">
+            <strong>Cuenta Demo / Backtesting</strong> — Las operaciones aquí registradas no afectan tu P&L ni métricas reales del Dashboard.
+          </p>
+        </div>
+      )}
 
       {/* Centinela de Riesgo: semáforo en vivo */}
       <RiskGuardianBar

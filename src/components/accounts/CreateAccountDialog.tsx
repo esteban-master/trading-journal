@@ -3,7 +3,7 @@ import { Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info, ShieldCheck, Sparkles, Copy } from 'lucide-react'
+import { Loader2, Plus, Building2, DollarSign, TrendingUp, Layers, Info, ShieldCheck, Sparkles, Copy, FlaskConical } from 'lucide-react'
 import { useCreateAccount } from '@/hooks/useAccounts'
 import {
   Dialog,
@@ -48,7 +48,7 @@ const createAccountSchema = z.object({
     .string()
     .min(2, 'Introduce el nombre de la firma')
     .max(40, 'Máximo 40 caracteres'),
-  status: z.enum(['Evaluation', 'Funded', 'Blown', 'Payout', 'Real'] as const, {
+  status: z.enum(['Evaluation', 'Funded', 'Blown', 'Payout', 'Real', 'Demo'] as const, {
     error: 'Selecciona un estado para la cuenta',
   }),
   cost: z.coerce
@@ -103,23 +103,44 @@ const ACCOUNT_TEMPLATES: AccountTemplate[] = [
       cost: 49,
       startingBalance: 50000,
       profitSplit: 50,
-      // Riesgo
       baseRiskPercent: 4,
       lossMultiplier: 1,
       enableEquityScaling: false,
       maxRiskPercent: 4,
-      // Centinela
       dailyLossLimitPercent: 4,
       maxConsecutiveLossesLockout: 1,
       maxTradesPerDay: 1,
       dailyProfitLockPercent: 3,
       trailingDrawdown: true,
       streakScope: 'allTrades',
-      // Evaluación
       totalPhases: 1,
       phase: 1,
       targetProfitPercentage: 6,
       maxDrawdownPercentage: 4,
+    },
+  },
+  {
+    label: 'Demo BT 10k',
+    description: 'Backtesting · $0 · EURUSD CFD',
+    color: 'border-sky-300 hover:border-sky-500 hover:bg-sky-50 dark:border-sky-800 dark:hover:bg-sky-950/40',
+    values: {
+      firm: 'TradingView',
+      status: 'Demo',
+      cost: 0,
+      startingBalance: 10000,
+      profitSplit: 100,
+      baseRiskPercent: 1,
+      lossMultiplier: 1,
+      enableEquityScaling: false,
+      maxRiskPercent: 2,
+      dailyLossLimitPercent: 3,
+      maxConsecutiveLossesLockout: 3,
+      maxTradesPerDay: 5,
+      dailyProfitLockPercent: 2,
+      trailingDrawdown: false,
+      streakScope: 'allTrades',
+      totalPhases: 1,
+      phase: 1,
     },
   },
 ]
@@ -168,11 +189,12 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
 
   const buildPayload = (values: CreateAccountValues, name: string) => {
     const isEval = values.status === 'Evaluation'
+    const isFree = values.status === 'Real' || values.status === 'Demo'
     return {
       name,
       firm: values.firm,
       status: values.status,
-      cost: values.status === 'Real' ? 0 : values.cost,
+      cost: isFree ? 0 : values.cost,
       startingBalance: values.startingBalance,
       currentBalance: values.startingBalance,
       equity: values.startingBalance,
@@ -185,7 +207,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       maxDrawdownPercentagePhase3: isEval && (values.totalPhases ?? 1) >= 3 ? values.maxDrawdownPercentagePhase3 : undefined,
       phase: isEval ? values.phase : (values.status === 'Funded' ? 3 : undefined),
       totalPhases: isEval ? values.totalPhases : undefined,
-      profitSplit: values.status === 'Real' ? 100 : values.profitSplit,
+      profitSplit: (values.status === 'Real' || values.status === 'Demo') ? 100 : values.profitSplit,
       baseRiskPercent: values.baseRiskPercent,
       lossMultiplier: values.lossMultiplier,
       enableEquityScaling: values.enableEquityScaling,
@@ -433,6 +455,15 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                               form.setValue('maxTradesPerDay', 3);
                               form.setValue('maxConsecutiveLossesLockout', 2);
                               form.setValue('dailyProfitLockPercent', 1.5);
+                            } else if (val === 'Demo') {
+                              form.setValue('baseRiskPercent', 1.0);
+                              form.setValue('maxRiskPercent', 2.0);
+                              form.setValue('lossMultiplier', 1.0);
+                              form.setValue('enableEquityScaling', false);
+                              form.setValue('dailyLossLimitPercent', 3);
+                              form.setValue('maxTradesPerDay', 5);
+                              form.setValue('maxConsecutiveLossesLockout', 3);
+                              form.setValue('dailyProfitLockPercent', 2);
                             } else if (val === 'Evaluation') {
                               form.setValue('baseRiskPercent', 0.55);
                               form.setValue('maxRiskPercent', 2.8);
@@ -458,6 +489,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                               <SelectItem value="Payout">Payout pendiente 💰</SelectItem>
                               <SelectItem value="Blown">Quemada ❌</SelectItem>
                               <SelectItem value="Real">Real (Personal) 🏦</SelectItem>
+                              <SelectItem value="Demo">Demo / Backtesting 🧪</SelectItem>
                             </SelectGroup>
                           </SelectContent>
                         </Select>
@@ -467,9 +499,19 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   />
                 </div>
 
-                <div className={form.watch('status') === 'Real' ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
+                {/* Banner informativo para Demo */}
+                {form.watch('status') === 'Demo' && (
+                  <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/50 p-3 rounded-lg flex items-start gap-3">
+                    <FlaskConical className="size-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-sky-800 dark:text-sky-300">
+                      <strong>Cuenta Demo / Backtesting:</strong> Las operaciones de esta cuenta <strong>no afectan tus métricas reales</strong> de P&L, ROI ni balance. Úsala para validar tu estrategia antes de arriesgar capital.
+                    </p>
+                  </div>
+                )}
+
+                <div className={(form.watch('status') === 'Real' || form.watch('status') === 'Demo') ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
                   {/* Costo */}
-                  {form.watch('status') !== 'Real' && (
+                  {form.watch('status') !== 'Real' && form.watch('status') !== 'Demo' && (
                     <FormField
                       control={form.control}
                       name="cost"
@@ -521,7 +563,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   />
 
                   {/* Profit Split */}
-                  {form.watch('status') !== 'Real' && (
+                  {form.watch('status') !== 'Real' && form.watch('status') !== 'Demo' && (
                     <FormField
                       control={form.control}
                       name="profitSplit"
@@ -549,7 +591,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Estrategia de Riesgo Variable</h4>
                   </div>
 
-                  {(form.watch('status') === 'Real' || form.watch('status') === 'Funded') && (
+                  {(form.watch('status') === 'Real' || form.watch('status') === 'Funded' || form.watch('status') === 'Demo') && (
                     <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 rounded-lg flex items-start gap-3">
                       <Info className="size-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
                       <p className="text-sm text-amber-800 dark:text-amber-400">
@@ -799,7 +841,7 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                   />
                 </div>
 
-                {/* Campos de Evaluación condicionales */}
+                {/* Campos de Evaluación condicionales — solo en Evaluación */}
                 {form.watch('status') === 'Evaluation' && (
                   <div className="flex flex-col gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
                     <div className="flex items-center gap-2">

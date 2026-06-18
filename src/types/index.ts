@@ -1,4 +1,4 @@
-export type AccountStatus = 'Evaluation' | 'Funded' | 'Blown' | 'Payout' | 'Real';
+export type AccountStatus = 'Evaluation' | 'Funded' | 'Blown' | 'Payout' | 'Real' | 'Demo';
 
 export interface Account {
   id: string;

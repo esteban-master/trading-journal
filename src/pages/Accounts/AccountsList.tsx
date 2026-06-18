@@ -1,4 +1,4 @@
-import { DollarSign, Wallet, TrendingUp, ArrowRight, Activity, Flame, CheckCircle2 } from 'lucide-react';
+import { DollarSign, Wallet, TrendingUp, ArrowRight, Activity, Flame, CheckCircle2, FlaskConical } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,23 +27,27 @@ export default function AccountsList() {
     }, 0);
   };
 
-  const totalCost = accounts.reduce((acc, curr) => acc + curr.cost, 0);
-  const totalWithdrawals = accounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
+  // Exclude Demo accounts from real-money metrics
+  const realAccounts = accounts.filter(account => account.status !== 'Demo');
+  const totalCost = realAccounts.reduce((acc, curr) => acc + curr.cost, 0);
+  const totalWithdrawals = realAccounts.reduce((acc, curr) => acc + curr.totalWithdrawals, 0);
 
-  const totalNetWithdrawals = accounts.reduce((acc, account) => {
+  const totalNetWithdrawals = realAccounts.reduce((acc, account) => {
     return acc + getAccountNetWithdrawals(account);
   }, 0);
 
   const netProfit = totalNetWithdrawals - totalCost;
   const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
 
-  // Filter accounts by active / lost status
-  const activeAccounts = accounts.filter(account => account.status !== 'Blown');
+  // Filter accounts by status
+  const activeAccounts = accounts.filter(account => account.status !== 'Blown' && account.status !== 'Demo');
   const blownAccounts = accounts.filter(account => account.status === 'Blown');
+  const demoAccounts = accounts.filter(account => account.status === 'Demo');
 
   const renderAccountRow = (account: Account) => {
     const isFunded = account.status === 'Funded';
     const isBlown = account.status === 'Blown';
+    const isDemo = account.status === 'Demo';
     const netWithdrawals = getAccountNetWithdrawals(account);
     const pnl = account.currentBalance - account.startingBalance;
 
@@ -52,7 +56,7 @@ export default function AccountsList() {
         <div className="flex items-center gap-4 px-4 py-3 rounded-lg border border-border hover:border-indigo-500/40 hover:bg-muted/30 transition-all cursor-pointer group">
           {/* Status dot */}
           <div className={`size-2 rounded-full shrink-0 ${
-            isFunded ? 'bg-emerald-500' : isBlown ? 'bg-red-500' : 'bg-blue-400'
+            isFunded ? 'bg-emerald-500' : isBlown ? 'bg-red-500' : isDemo ? 'bg-sky-400' : 'bg-blue-400'
           }`} />
 
           {/* Nombre + firma */}
@@ -64,10 +68,10 @@ export default function AccountsList() {
           {/* Badge */}
           <div className="shrink-0 hidden sm:block">
             <Badge
-              variant={isFunded ? 'success' : isBlown ? 'destructive' : account.status === 'Real' ? 'default' : 'info'}
-              className="text-[11px]"
+              variant={isFunded ? 'success' : isBlown ? 'destructive' : isDemo ? 'secondary' : account.status === 'Real' ? 'default' : 'info'}
+              className={`text-[11px] ${isDemo ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' : ''}`}
             >
-              {account.status === 'Real' ? 'Real' : account.status}
+              {account.status === 'Real' ? 'Real' : isDemo ? 'Demo 🧪' : account.status}
             </Badge>
           </div>
 
@@ -177,6 +181,13 @@ export default function AccountsList() {
                 {blownAccounts.length}
               </Badge>
             </TabsTrigger>
+            <TabsTrigger value="demo" className="gap-2 px-4 py-1.5 text-sm">
+              <FlaskConical className="size-4 text-sky-500" />
+              <span>Demo / BT</span>
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-bold rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-400 hover:bg-sky-100">
+                {demoAccounts.length}
+              </Badge>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -238,6 +249,31 @@ export default function AccountsList() {
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {blownAccounts.map(renderAccountRow)}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="demo" className="mt-0 outline-none">
+              {demoAccounts.length === 0 ? (
+                <Card className="flex flex-col items-center justify-center p-12 text-center border-dashed border-2 border-sky-200 dark:border-sky-900/40 bg-sky-50/50 dark:bg-sky-950/10">
+                  <div className="rounded-full bg-sky-100 dark:bg-sky-900/30 p-3 mb-4">
+                    <FlaskConical className="size-8 text-sky-500 dark:text-sky-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sin cuentas Demo</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                    Crea una cuenta Demo para registrar tu backtesting y validar tu estrategia antes de arriesgar capital real.
+                  </p>
+                  <div className="mt-6">
+                    <CreateAccountDialog />
+                  </div>
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <div className="px-4 py-2 rounded-lg bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/30 text-xs text-sky-700 dark:text-sky-400 flex items-center gap-2">
+                    <FlaskConical className="size-3.5 shrink-0" />
+                    Estas cuentas son de backtesting. Sus métricas <strong className="font-semibold">no se incluyen</strong> en el balance, ROI ni estadísticas reales.
+                  </div>
+                  {demoAccounts.map(renderAccountRow)}
                 </div>
               )}
             </TabsContent>
