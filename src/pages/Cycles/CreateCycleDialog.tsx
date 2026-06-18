@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, GripVertical, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { Account } from '@/types';
+import { Account, TopstepStrategyMode } from '@/types';
+import { TOPSTEP_STRATEGIES } from '@/lib/topstepSimulator';
 
 const MAX_ACCOUNTS = 10;
 
@@ -23,6 +24,7 @@ export default function CreateCycleDialog() {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selected, setSelected] = useState<Account[]>([]);
+  const [strategyMode, setStrategyMode] = useState<TopstepStrategyMode | undefined>(undefined);
 
   const { data: accounts = [] } = useAccounts();
   const createCycle = useCreateInvestmentCycle();
@@ -81,12 +83,14 @@ export default function CreateCycleDialog() {
         status: 'active',
         startDate,
         accountIds: selected.map((a) => a.id),
+        ...(strategyMode ? { strategyMode } : {}),
       });
       toast.success('Ciclo creado');
       setOpen(false);
       setName('');
       setSelected([]);
       setStartDate(new Date().toISOString().split('T')[0]);
+      setStrategyMode(undefined);
     } catch {
       toast.error('Error al crear el ciclo');
     }
@@ -131,6 +135,45 @@ export default function CreateCycleDialog() {
               El día que operaste (o planeas operar) la Cuenta #1 por primera vez
             </p>
           </div>
+
+          {/* Estrategia Topstep (solo si hay cuentas Topstep seleccionadas) */}
+          {selected.some((a) => a.firm?.toLowerCase().includes('topstep')) && (
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm">
+                Estrategia de riesgo
+                <span className="text-muted-foreground ml-1 font-normal">(Topstep)</span>
+              </Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {TOPSTEP_STRATEGIES.map((s) => {
+                  const active = strategyMode === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setStrategyMode(active ? undefined : s.id as TopstepStrategyMode)}
+                      className="flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-all hover:bg-muted/40"
+                      style={{
+                        borderColor: active ? s.color : undefined,
+                        backgroundColor: active ? `${s.color}15` : undefined,
+                      }}
+                    >
+                      <span className="text-xs font-semibold" style={{ color: s.color }}>
+                        {s.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        R${s.risk >= 1000 ? `${s.risk / 1000}K` : s.risk} · T$1.5K
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!strategyMode && (
+                <p className="text-[11px] text-muted-foreground">
+                  Opcional · define cómo se colorea el progreso en el ciclo
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Selector de cuentas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

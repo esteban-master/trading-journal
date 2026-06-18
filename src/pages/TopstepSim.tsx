@@ -841,9 +841,9 @@ export default function TopstepSim() {
                   </thead>
                   <tbody>
                     {comparisonResults.map((s) => {
+                      const viableInTable = comparisonResults.filter(x => x.winRateBreakEven <= winRate / 100);
                       const isRecommended = s.winRateBreakEven <= winRate / 100 &&
-                        (comparisonResults.find(x => x.winRateBreakEven > winRate / 100 - 0.01 && x.id === s.id) !== undefined ||
-                          comparisonResults.filter(x => x.winRateBreakEven <= winRate / 100).at(-1)?.id === s.id);
+                        viableInTable[viableInTable.length - 1]?.id === s.id;
                       return (
                         <tr key={s.id} className="border-b border-border/50 hover:bg-muted/30">
                           <td className="px-4 py-3">
@@ -1016,7 +1016,7 @@ function RecommendationBanner({
 }) {
   const winRate = winRatePct / 100;
   const viable = results.filter((r) => r.winRateBreakEven <= winRate);
-  const recommended = viable.at(-1); // highest-risk strategy still viable
+  const recommended = viable[viable.length - 1] ?? null; // highest-risk strategy still viable
 
   if (!recommended) {
     return (

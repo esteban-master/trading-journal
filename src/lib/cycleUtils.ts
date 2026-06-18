@@ -24,6 +24,10 @@ export interface TopstepAccountProgress {
   progressPct: number;
   minTradingDaysOk: boolean;
   isPassed: boolean;
+  dailyResults: Array<{ date: string; pnl: number }>;
+  winDays: number;
+  lossDays: number;
+  impliedWinRate: number;
 }
 
 export function computeTopstepProgress(
@@ -65,6 +69,11 @@ export function computeTopstepProgress(
   const minTradingDaysOk = tradingDays >= 5;
   const isPassed = cumulativePnl >= targetProfit && isConsistencyOk && minTradingDaysOk && !isBlownByDD;
 
+  const dailyResults = dates.map((d) => ({ date: d, pnl: byDate.get(d) ?? 0 }));
+  const winDays = dailyResults.filter((r) => r.pnl > 0).length;
+  const lossDays = dailyResults.filter((r) => r.pnl < 0).length;
+  const impliedWinRate = tradingDays > 0 ? winDays / tradingDays : 0;
+
   return {
     cumulativePnl,
     tradingDays,
@@ -79,6 +88,10 @@ export function computeTopstepProgress(
     progressPct,
     minTradingDaysOk,
     isPassed,
+    dailyResults,
+    winDays,
+    lossDays,
+    impliedWinRate,
   };
 }
 

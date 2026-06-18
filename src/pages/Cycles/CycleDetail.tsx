@@ -32,6 +32,8 @@ import {
   type AccountCycleRow,
   type TopstepAccountProgress,
 } from '@/lib/cycleUtils';
+import { TOPSTEP_STRATEGIES } from '@/lib/topstepSimulator';
+import type { TopstepStrategyMode } from '@/types';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<
@@ -179,6 +181,17 @@ export default function CycleDetail() {
                   ? 'Completado'
                   : 'Cancelado'}
               </Badge>
+              {cycle.strategyMode && (() => {
+                const strat = TOPSTEP_STRATEGIES.find((s) => s.id === cycle.strategyMode);
+                return strat ? (
+                  <Badge
+                    variant="outline"
+                    style={{ borderColor: `${strat.color}60`, color: strat.color }}
+                  >
+                    {strat.label} · R${strat.risk >= 1000 ? `${strat.risk / 1000}K` : strat.risk}
+                  </Badge>
+                ) : null;
+              })()}
             </div>
             <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
               <CalendarDays className="size-3.5" />
@@ -304,7 +317,7 @@ export default function CycleDetail() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <RotationRow key={row.position} row={row} />
+                  <RotationRow key={row.position} row={row} strategyMode={cycle.strategyMode} />
                 ))}
               </tbody>
             </table>
@@ -353,7 +366,7 @@ export default function CycleDetail() {
 }
 
 // ─── Fila de la tabla ─────────────────────────────────────────────────────────
-function RotationRow({ row }: { row: AccountCycleRow }) {
+function RotationRow({ row, strategyMode }: { row: AccountCycleRow; strategyMode?: TopstepStrategyMode }) {
   const cfg = STATUS_CFG[row.cycleStatus];
   const tp = row.topstepProgress;
 
@@ -433,21 +446,38 @@ function RotationRow({ row }: { row: AccountCycleRow }) {
       </tr>
 
       {/* Sub-fila métricas Topstep */}
-      {tp && <TopstepProgressRow progress={tp} colSpan={8} isToday={row.isToday} />}
+      {tp && <TopstepProgressRow progress={tp} colSpan={8} isToday={row.isToday} strategyMode={strategyMode} />}
     </>
   );
 }
 
 // ─── Sub-fila progreso Topstep ────────────────────────────────────────────────
+function estimateRemainingDays(
+  tp: TopstepAccountProgress,
+  risk: number,
+  reward: number,
+): number | null {
+  if (tp.isBlownByDD || tp.isPassed || tp.tradingDays === 0) return null;
+  const remaining = tp.targetProfit - tp.cumulativePnl;
+  if (remaining <= 0) return 0;
+  const ev = tp.impliedWinRate * reward - (1 - tp.impliedWinRate) * risk;
+  if (ev <= 0) return null;
+  return Math.ceil(remaining / ev);
+}
+
 function TopstepProgressRow({
   progress: tp,
   colSpan,
   isToday,
+  strategyMode,
 }: {
   progress: TopstepAccountProgress;
   colSpan: number;
   isToday: boolean;
+  strategyMode?: TopstepStrategyMode;
 }) {
+  const strat = strategyMode ? TOPSTEP_STRATEGIES.find((s) => s.id === strategyMode) : undefined;
+
   const ddRoomColor =
     tp.trailingDDRoom > 1000
       ? 'text-emerald-400'
@@ -456,6 +486,12 @@ function TopstepProgressRow({
       : 'text-red-400';
 
   const consColor = tp.isConsistencyOk ? 'text-emerald-400' : 'text-red-400';
+  const barColor = tp.isPassed ? '#10b981' : (strat?.color ?? '#6366f1');
+
+  const daysLeft = strat ? estimateRemainingDays(tp, strat.risk, strat.reward) : null;
+
+  // Mostrar máximo 10 días de historial; los más recientes al final
+  const visibleDays = tp.dailyResults.slice(-10);
 
   return (
     <tr
@@ -463,14 +499,22 @@ function TopstepProgressRow({
     >
       <td colSpan={colSpan} className="px-4 pb-3 pt-1">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* Chip de estrategia */}
+          {strat && (
+            <span
+              className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+              style={{ color: strat.color, backgroundColor: `${strat.color}18` }}
+            >
+              {strat.label} · R${strat.risk >= 1000 ? `${strat.risk / 1000}K` : strat.risk} · T$1.5K
+            </span>
+          )}
+
           {/* Barra de progreso PNL */}
           <div className="flex items-center gap-2 min-w-[160px]">
             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden min-w-[80px]">
               <div
-                className={`h-full rounded-full transition-all ${
-                  tp.isPassed ? 'bg-emerald-500' : 'bg-indigo-500'
-                }`}
-                style={{ width: `${tp.progressPct * 100}%` }}
+                className="h-full rounded-full transition-all"
+                style={{ width: `${tp.progressPct * 100}%`, backgroundColor: barColor }}
               />
             </div>
             <span className="text-xs font-mono whitespace-nowrap">
@@ -481,20 +525,39 @@ function TopstepProgressRow({
             </span>
           </div>
 
-          {/* Días de trading */}
+          {/* Historial de días: dots por-día coloreados (win/loss) */}
           <div className="flex items-center gap-1.5">
+            {tp.dailyResults.length > 10 && (
+              <span className="text-[10px] text-muted-foreground">…</span>
+            )}
             <div className="flex gap-0.5">
-              {Array.from({ length: 5 }, (_, i) => (
+              {visibleDays.map((d, i) => (
                 <div
                   key={i}
-                  className={`size-2 rounded-full ${
-                    i < tp.tradingDays ? 'bg-indigo-400' : 'bg-muted'
-                  }`}
+                  className="size-2 rounded-full"
+                  title={`${d.date}: ${d.pnl >= 0 ? '+' : ''}$${Math.abs(d.pnl).toLocaleString()}`}
+                  style={{
+                    backgroundColor:
+                      d.pnl > 0
+                        ? (strat?.color ?? '#818cf8')
+                        : d.pnl < 0
+                        ? '#ef4444'
+                        : '#6b7280',
+                  }}
                 />
+              ))}
+              {/* Dots vacíos hasta 5 mínimo */}
+              {Array.from({ length: Math.max(0, 5 - tp.tradingDays) }, (_, i) => (
+                <div key={`empty-${i}`} className="size-2 rounded-full bg-muted" />
               ))}
             </div>
             <span className="text-[11px] text-muted-foreground">
               {tp.tradingDays}/5 días
+              {tp.tradingDays > 0 && (
+                <span className="ml-1">
+                  ({tp.winDays}W·{tp.lossDays}L)
+                </span>
+              )}
             </span>
           </div>
 
@@ -516,6 +579,25 @@ function TopstepProgressRow({
                 : '—'}
             </span>
           </div>
+
+          {/* Proyección de días restantes (solo con estrategia seleccionada) */}
+          {strat && !tp.isPassed && !tp.isBlownByDD && (
+            <div className="flex items-center gap-1 text-[11px]">
+              <span className="text-muted-foreground">Proyección:</span>
+              <span className="font-semibold" style={{ color: strat.color }}>
+                {daysLeft === null
+                  ? 'EV negativo'
+                  : daysLeft === 0
+                  ? '¡Ya cumplió!'
+                  : `~${daysLeft} días más`}
+              </span>
+              {tp.tradingDays > 0 && (
+                <span className="text-muted-foreground">
+                  ({(tp.impliedWinRate * 100).toFixed(0)}% W real)
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </td>
     </tr>

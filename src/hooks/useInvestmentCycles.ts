@@ -32,6 +32,7 @@ function normalizeCycle(docId: string, data: DocumentData): InvestmentCycle {
     createdAt: data.createdAt instanceof Timestamp
       ? data.createdAt.toDate().toISOString()
       : data.createdAt ?? new Date().toISOString(),
+    strategyMode: data.strategyMode ?? undefined,
   };
 }
 

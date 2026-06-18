@@ -171,6 +171,8 @@ export interface Reminder {
 // --- Ciclos de Inversión ---
 export type InvestmentCycleStatus = 'active' | 'completed' | 'cancelled';
 
+export type TopstepStrategyMode = 'conservative' | 'balanced' | 'aggressive' | 'ultra';
+
 export interface InvestmentCycle {
   id: string;
   userId: string;
@@ -179,4 +181,5 @@ export interface InvestmentCycle {
   startDate: string;             // ISO date — Día 1 del ciclo
   accountIds: string[];          // IDs ordenados: índice 0 = posición 1, etc.
   createdAt: string;             // ISO date string
+  strategyMode?: TopstepStrategyMode;
 }
