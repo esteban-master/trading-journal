@@ -8,6 +8,80 @@ export type CycleAccountStatus =
   | 'passed'
   | 'blown_day2';
 
+// ─── Progreso Topstep por cuenta ──────────────────────────────────────────────
+
+export interface TopstepAccountProgress {
+  cumulativePnl: number;
+  tradingDays: number;
+  maxDayPnl: number;
+  consistencyRatio: number;
+  isConsistencyOk: boolean;
+  trailingFloor: number;
+  currentBalance: number;
+  trailingDDRoom: number;
+  isBlownByDD: boolean;
+  targetProfit: number;
+  progressPct: number;
+  minTradingDaysOk: boolean;
+  isPassed: boolean;
+}
+
+export function computeTopstepProgress(
+  trades: Trade[],
+  startingBalance = 50_000,
+  targetProfit = 3_000,
+  maxDrawdown = 2_000,
+): TopstepAccountProgress {
+  const byDate = new Map<string, number>();
+  for (const trade of trades) {
+    const key = trade.date.slice(0, 10);
+    byDate.set(key, (byDate.get(key) ?? 0) + trade.pnl);
+  }
+
+  const dates = [...byDate.keys()].sort();
+  let runningBalance = startingBalance;
+  let maxEodBalance = startingBalance;
+  let trailingFloor = startingBalance - maxDrawdown;
+  let maxDayPnl = 0;
+  let isBlownByDD = false;
+
+  for (const date of dates) {
+    const dayPnl = byDate.get(date) ?? 0;
+    runningBalance += dayPnl;
+    if (dayPnl > maxDayPnl) maxDayPnl = dayPnl;
+    if (runningBalance > maxEodBalance) {
+      maxEodBalance = runningBalance;
+      trailingFloor = maxEodBalance - maxDrawdown;
+    }
+    if (runningBalance <= trailingFloor) isBlownByDD = true;
+  }
+
+  const cumulativePnl = runningBalance - startingBalance;
+  const tradingDays = dates.length;
+  const consistencyRatio = cumulativePnl > 0 ? maxDayPnl / cumulativePnl : 0;
+  const isConsistencyOk = cumulativePnl <= 0 || consistencyRatio <= 0.5;
+  const trailingDDRoom = Math.max(0, runningBalance - trailingFloor);
+  const progressPct = Math.max(0, Math.min(1, cumulativePnl / targetProfit));
+  const minTradingDaysOk = tradingDays >= 5;
+  const isPassed = cumulativePnl >= targetProfit && isConsistencyOk && minTradingDaysOk && !isBlownByDD;
+
+  return {
+    cumulativePnl,
+    tradingDays,
+    maxDayPnl,
+    consistencyRatio,
+    isConsistencyOk,
+    trailingFloor,
+    currentBalance: runningBalance,
+    trailingDDRoom,
+    isBlownByDD,
+    targetProfit,
+    progressPct,
+    minTradingDaysOk,
+    isPassed,
+  };
+}
+
 export interface AccountCycleRow {
   position: number;         // 1-10
   account: Account;
@@ -17,6 +91,7 @@ export interface AccountCycleRow {
   operationDayFirst: number;  // día de la primera operación (= position)
   operationDaySecond: number; // día de la segunda operación (= position + numAccounts)
   isToday: boolean;
+  topstepProgress?: TopstepAccountProgress;
 }
 
 /**
@@ -126,6 +201,16 @@ export function buildCycleRows(
     const accountTrades = allTrades.filter((t) => t.accountId === accountId);
     const { status, day1Pnl, day2Pnl } = computeCycleAccountStatus(accountTrades);
 
+    const isTopstep = account.firm?.toLowerCase().includes('topstep');
+    const topstepProgress = isTopstep
+      ? computeTopstepProgress(
+          accountTrades,
+          account.startingBalance || 50_000,
+          account.startingBalance ? account.startingBalance * 0.06 : 3_000,
+          account.startingBalance ? account.startingBalance * 0.04 : 2_000,
+        )
+      : undefined;
+
     return {
       position,
       account,
@@ -135,6 +220,7 @@ export function buildCycleRows(
       operationDayFirst: position,
       operationDaySecond: position + numAccounts,
       isToday: todayPos === position,
+      topstepProgress,
     };
   });
 }

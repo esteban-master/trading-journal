@@ -43,12 +43,19 @@ import {
   Target,
   Percent,
   Zap,
+  Shield,
+  Scale,
+  Flame,
+  AlertTriangle,
+  GitCompare,
 } from 'lucide-react';
 import {
   runTopstepSimulation,
   binomialDistribution,
+  compareStrategies,
   type AccountSimResult,
   type TopstepSimResult,
+  type StrategyComparisonResult,
 } from '@/lib/topstepSimulator';
 
 // ─── Parámetros fijos Topstep 50k ────────────────────────────────────────────
@@ -186,6 +193,10 @@ export default function TopstepSim() {
     k,
     prob: prob * 100,
   }));
+
+  const comparisonResults = useMemo(() => {
+    return compareStrategies(winRate, NUM_ACCOUNTS, 2000, challengeCost, activationFee, fundedValue);
+  }, [winRate, challengeCost, activationFee, fundedValue]);
 
   async function handleRun() {
     setIsRunning(true);
@@ -435,6 +446,10 @@ export default function TopstepSim() {
           <TabsTrigger value="simulacion" className="gap-1.5">
             <BarChart2 className="size-3.5" />
             Simulación
+          </TabsTrigger>
+          <TabsTrigger value="comparativa" className="gap-1.5">
+            <GitCompare className="size-3.5" />
+            Comparativa
           </TabsTrigger>
         </TabsList>
 
@@ -779,8 +794,280 @@ export default function TopstepSim() {
             </>
           )}
         </TabsContent>
+
+        {/* ─── Tab Comparativa ─────────────────────────────────── */}
+        <TabsContent value="comparativa" className="flex flex-col gap-4">
+          <Card className="border-border bg-muted/20">
+            <CardContent className="pt-4 pb-3">
+              <p className="text-sm text-muted-foreground">
+                Compara 4 estrategias de riesgo con <strong className="text-foreground">win rate {winRatePct}%</strong>.
+                Todas apuntan a <strong className="text-foreground">$1,500/día</strong> (límite de consistencia 50%) para pasar en
+                mínimo 5 días de trading. El riesgo cambia cuántas pérdidas puedes absorber antes de blow.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {comparisonResults.map((s) => (
+              <StrategyCard
+                key={s.id}
+                result={s}
+                winRatePct={winRatePct}
+                numAccounts={NUM_ACCOUNTS}
+              />
+            ))}
+          </div>
+
+          {/* Tabla comparativa rápida */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Resumen Comparativo</CardTitle>
+              <CardDescription className="text-xs">
+                Simulación Monte Carlo 2,000 iteraciones · Win Rate {winRatePct}%
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground">
+                      <th className="text-left px-4 py-3">Estrategia</th>
+                      <th className="text-center px-3 py-3">Riesgo/día</th>
+                      <th className="text-center px-3 py-3">W% break-even</th>
+                      <th className="text-center px-3 py-3">Vidas DD</th>
+                      <th className="text-center px-3 py-3">Prom. cuentas</th>
+                      <th className="text-right px-4 py-3">ROI esperado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonResults.map((s) => {
+                      const isRecommended = s.winRateBreakEven <= winRate / 100 &&
+                        (comparisonResults.find(x => x.winRateBreakEven > winRate / 100 - 0.01 && x.id === s.id) !== undefined ||
+                          comparisonResults.filter(x => x.winRateBreakEven <= winRate / 100).at(-1)?.id === s.id);
+                      return (
+                        <tr key={s.id} className="border-b border-border/50 hover:bg-muted/30">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="size-2 rounded-full" style={{ backgroundColor: s.color }} />
+                              <span className="font-medium">{s.label}</span>
+                              {isRecommended && (
+                                <Badge variant="outline" className="text-[10px] border-indigo-500/50 text-indigo-400">
+                                  Óptimo
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-sm">${s.risk.toLocaleString()}</td>
+                          <td className="px-3 py-3 text-center">
+                            <span className={winRatePct / 100 >= s.winRateBreakEven ? 'text-emerald-400' : 'text-red-400'}>
+                              {(s.winRateBreakEven * 100).toFixed(0)}%
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <div className="flex items-center justify-center gap-0.5">
+                              {Array.from({ length: 4 }, (_, i) => (
+                                <div
+                                  key={i}
+                                  className={`size-2.5 rounded-full ${i < s.maxLossesBeforeBlow ? 'bg-emerald-500' : 'bg-muted'}`}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center font-semibold">{s.avgPassed.toFixed(1)}</td>
+                          <td className={`px-4 py-3 text-right font-semibold ${s.expectedNetPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {s.expectedNetPnl >= 0 ? '+' : ''}{fmtMoney(s.expectedNetPnl)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recomendación contextual */}
+          <RecommendationBanner winRatePct={winRatePct} results={comparisonResults} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ─── StrategyCard ─────────────────────────────────────────────────────────────
+const STRATEGY_ICONS: Record<string, React.ReactNode> = {
+  conservative: <Shield className="size-4" />,
+  balanced: <Scale className="size-4" />,
+  aggressive: <Zap className="size-4" />,
+  ultra: <Flame className="size-4" />,
+};
+
+function StrategyCard({
+  result,
+  winRatePct,
+  numAccounts,
+}: {
+  result: StrategyComparisonResult;
+  winRatePct: number;
+  numAccounts: number;
+}) {
+  const isViable = winRatePct / 100 >= result.winRateBreakEven;
+  const avgVisitsDays = result.avgVisitsToPass > 0
+    ? Math.round(result.avgVisitsToPass * numAccounts)
+    : null;
+
+  return (
+    <Card
+      className="relative overflow-hidden"
+      style={{ borderColor: `${result.color}33` }}
+    >
+      <div
+        className="absolute top-0 left-0 right-0 h-0.5"
+        style={{ backgroundColor: result.color }}
+      />
+      <CardHeader className="pb-2 pt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div style={{ color: result.color }}>{STRATEGY_ICONS[result.id]}</div>
+            <CardTitle className="text-base">{result.label}</CardTitle>
+          </div>
+          {!isViable && (
+            <AlertTriangle className="size-3.5 text-amber-400 shrink-0" />
+          )}
+        </div>
+        <CardDescription className="text-xs font-mono">
+          Riesgo ${result.risk.toLocaleString()} · Target ${result.reward.toLocaleString()}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {/* Break-even */}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground text-xs">Break-even W%</span>
+          <span className={`font-semibold ${isViable ? 'text-emerald-400' : 'text-red-400'}`}>
+            {(result.winRateBreakEven * 100).toFixed(0)}%
+            {isViable ? ' ✓' : ' ✗'}
+          </span>
+        </div>
+
+        {/* Vidas (tolerancia a pérdidas) */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground">Vidas antes de blow</span>
+            <span className="text-xs font-semibold">{result.maxLossesBeforeBlow}</span>
+          </div>
+          <div className="flex gap-1">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div
+                key={i}
+                className="h-2 flex-1 rounded-full"
+                style={{
+                  backgroundColor: i < result.maxLossesBeforeBlow ? result.color : undefined,
+                  opacity: i < result.maxLossesBeforeBlow ? 0.8 : undefined,
+                }}
+                data-filled={i < result.maxLossesBeforeBlow}
+              >
+                {i >= result.maxLossesBeforeBlow && (
+                  <div className="h-full w-full rounded-full bg-muted" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cuentas esperadas */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">Cuentas promedio</span>
+          <span className="font-bold text-lg" style={{ color: result.color }}>
+            {result.avgPassed.toFixed(1)}
+            <span className="text-xs text-muted-foreground font-normal"> / {numAccounts}</span>
+          </span>
+        </div>
+
+        {/* Días promedio para pasar */}
+        {avgVisitsDays && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Días hasta fondeo</span>
+            <span className="font-medium">~{avgVisitsDays} días</span>
+          </div>
+        )}
+
+        {/* ROI esperado */}
+        <div
+          className={`rounded-lg px-3 py-2 text-sm font-semibold text-center ${
+            result.expectedNetPnl >= 0
+              ? 'bg-emerald-500/10 text-emerald-400'
+              : 'bg-red-500/10 text-red-400'
+          }`}
+        >
+          {result.expectedNetPnl >= 0 ? '+' : ''}{fmtMoney(result.expectedNetPnl)} ROI
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── RecommendationBanner ─────────────────────────────────────────────────────
+function RecommendationBanner({
+  winRatePct,
+  results,
+}: {
+  winRatePct: number;
+  results: StrategyComparisonResult[];
+}) {
+  const winRate = winRatePct / 100;
+  const viable = results.filter((r) => r.winRateBreakEven <= winRate);
+  const recommended = viable.at(-1); // highest-risk strategy still viable
+
+  if (!recommended) {
+    return (
+      <Card className="border-red-500/30 bg-red-500/5">
+        <CardContent className="pt-4 pb-4 flex items-start gap-3">
+          <AlertTriangle className="size-5 text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-400">Win rate insuficiente</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Con {winRatePct}% ninguna estrategia es rentable a largo plazo. El mínimo para la
+              estrategia Conservadora es ~25%. Trabaja en mejorar tu consistencia antes de escalar cuentas.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const recs: Record<string, { text: string; color: string }> = {
+    conservative: {
+      text: `Con ${winRatePct}% de win rate, la estrategia Conservadora ($500 riesgo) maximiza tu probabilidad de fondeo al darte 4 intentos antes de blow. Ideal para win rates entre 25-40%.`,
+      color: 'text-emerald-400',
+    },
+    balanced: {
+      text: `Con ${winRatePct}% de win rate, Balanceada ($1,000 riesgo) ofrece el mejor equilibrio: 2 vidas antes de blow y buen ROI. Recomendado para 40-50%.`,
+      color: 'text-blue-400',
+    },
+    aggressive: {
+      text: `Con ${winRatePct}% de win rate, Agresiva ($1,500 riesgo) es viable. Tienes 1 vida antes de blow. Asegúrate de ser consistente antes de escalar con esta estrategia.`,
+      color: 'text-amber-400',
+    },
+    ultra: {
+      text: `Con ${winRatePct}% de win rate, Ultra ($2,000 riesgo) es la más rápida. Solo 1 vida: si pierdes una vez desde cero = blown. Úsala si tu win rate es sólido y constante.`,
+      color: 'text-red-400',
+    },
+  };
+
+  const rec = recs[recommended.id];
+
+  return (
+    <Card className="border-indigo-500/30 bg-indigo-500/5">
+      <CardContent className="pt-4 pb-4 flex items-start gap-3">
+        <Target className="size-5 text-indigo-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-indigo-400">
+            Recomendación: estrategia {recommended.label}
+          </p>
+          <p className={`text-xs mt-0.5 ${rec.color}`}>{rec.text}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

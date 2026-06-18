@@ -140,6 +140,142 @@ export function runTopstepSimulation(config: TopstepSimConfig): TopstepSimResult
   };
 }
 
+// ─── Comparador de estrategias ────────────────────────────────────────────────
+
+export const TOPSTEP_STRATEGIES = [
+  { id: 'conservative' as const, label: 'Conservador', risk: 500,  reward: 1500, color: '#10b981' },
+  { id: 'balanced'     as const, label: 'Balanceado',  risk: 1000, reward: 1500, color: '#3b82f6' },
+  { id: 'aggressive'  as const, label: 'Agresivo',    risk: 1500, reward: 1500, color: '#f59e0b' },
+  { id: 'ultra'        as const, label: 'Ultra',       risk: 2000, reward: 1500, color: '#ef4444' },
+];
+
+export type TopstepStrategyId = typeof TOPSTEP_STRATEGIES[number]['id'];
+
+export interface StrategyComparisonResult {
+  id: TopstepStrategyId;
+  label: string;
+  risk: number;
+  reward: number;
+  color: string;
+  winRateBreakEven: number;
+  maxLossesBeforeBlow: number;
+  avgPassed: number;
+  p50: number;
+  expectedNetPnl: number;
+  avgVisitsToPass: number;
+}
+
+function simulateAccountOutcome(
+  winRate: number,
+  risk: number,
+  reward: number,
+  startingBalance: number,
+  targetProfit: number,
+  maxDrawdown: number,
+  minTradingDays: number,
+  maxVisits: number,
+): { passed: boolean; visitsUsed: number } {
+  let balance = startingBalance;
+  let maxEodBalance = startingBalance;
+  let trailingFloor = startingBalance - maxDrawdown;
+  let netPnl = 0;
+  let maxDayPnl = 0;
+  let tradingDays = 0;
+  let targetReached = false;
+
+  for (let visit = 0; visit < maxVisits; visit++) {
+    tradingDays++;
+
+    if (targetReached) {
+      if (tradingDays >= minTradingDays) return { passed: true, visitsUsed: tradingDays };
+      continue;
+    }
+
+    const win = Math.random() < winRate;
+    if (win) {
+      netPnl += reward;
+      balance += reward;
+      if (reward > maxDayPnl) maxDayPnl = reward;
+      if (balance > maxEodBalance) {
+        maxEodBalance = balance;
+        trailingFloor = maxEodBalance - maxDrawdown;
+      }
+    } else {
+      netPnl -= risk;
+      balance -= risk;
+      if (balance <= trailingFloor) return { passed: false, visitsUsed: tradingDays };
+    }
+
+    const consistencyOk = netPnl <= 0 || maxDayPnl / netPnl <= 0.5;
+    if (netPnl >= targetProfit && consistencyOk) {
+      targetReached = true;
+      if (tradingDays >= minTradingDays) return { passed: true, visitsUsed: tradingDays };
+    }
+  }
+
+  return { passed: false, visitsUsed: tradingDays };
+}
+
+export function compareStrategies(
+  winRate: number,
+  numAccounts: number,
+  iterations: number,
+  challengeCost: number,
+  activationFee: number,
+  fundedValue: number,
+): StrategyComparisonResult[] {
+  const startingBalance = 50_000;
+  const targetProfit = 3_000;
+  const maxDrawdown = 2_000;
+  const minTradingDays = 5;
+  const maxVisits = 20;
+
+  return TOPSTEP_STRATEGIES.map((strategy) => {
+    const passedPerIteration: number[] = [];
+    let totalVisitsToPass = 0;
+    let totalPassedAccounts = 0;
+
+    for (let iter = 0; iter < iterations; iter++) {
+      let passedThisIter = 0;
+      for (let acc = 0; acc < numAccounts; acc++) {
+        const { passed, visitsUsed } = simulateAccountOutcome(
+          winRate, strategy.risk, strategy.reward,
+          startingBalance, targetProfit, maxDrawdown, minTradingDays, maxVisits,
+        );
+        if (passed) {
+          passedThisIter++;
+          totalVisitsToPass += visitsUsed;
+          totalPassedAccounts++;
+        }
+      }
+      passedPerIteration.push(passedThisIter);
+    }
+
+    const sortedPassed = [...passedPerIteration].sort((a, b) => a - b);
+    const avgPassed = passedPerIteration.reduce((a, b) => a + b, 0) / iterations;
+    const p50 = getPercentile(sortedPassed, 0.5);
+
+    const totalChallengeCost = numAccounts * challengeCost;
+    const expectedActivationCost = avgPassed * activationFee;
+    const expectedRevenue = avgPassed * fundedValue;
+    const expectedNetPnl = expectedRevenue - totalChallengeCost - expectedActivationCost;
+
+    return {
+      id: strategy.id,
+      label: strategy.label,
+      risk: strategy.risk,
+      reward: strategy.reward,
+      color: strategy.color,
+      winRateBreakEven: strategy.risk / (strategy.risk + strategy.reward),
+      maxLossesBeforeBlow: Math.floor(maxDrawdown / strategy.risk),
+      avgPassed,
+      p50,
+      expectedNetPnl,
+      avgVisitsToPass: totalPassedAccounts > 0 ? totalVisitsToPass / totalPassedAccounts : 0,
+    };
+  });
+}
+
 // Distribución binomial analítica P(X=k) = C(n,k) * p^k * (1-p)^(n-k)
 export function binomialDistribution(n: number, p: number): number[] {
   function comb(a: number, b: number): number {

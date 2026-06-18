@@ -13,6 +13,8 @@ import {
   ExternalLink,
   CalendarDays,
   Star,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +30,7 @@ import {
   getTodayPosition,
   type CycleAccountStatus,
   type AccountCycleRow,
+  type TopstepAccountProgress,
 } from '@/lib/cycleUtils';
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -352,68 +355,168 @@ export default function CycleDetail() {
 // ─── Fila de la tabla ─────────────────────────────────────────────────────────
 function RotationRow({ row }: { row: AccountCycleRow }) {
   const cfg = STATUS_CFG[row.cycleStatus];
+  const tp = row.topstepProgress;
+
+  return (
+    <>
+      <tr
+        className={`transition-colors ${
+          tp ? '' : 'border-b border-border/50'
+        } ${row.isToday ? 'bg-indigo-500/10' : 'hover:bg-muted/30'}`}
+      >
+        <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{row.position}</td>
+        <td className="px-3 py-3">
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{row.account.name}</span>
+            {tp?.isBlownByDD && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded-full">
+                <ShieldAlert className="size-2.5" /> Blown DD
+              </span>
+            )}
+            {tp?.isPassed && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                <CheckCircle2 className="size-2.5" /> Fondeada
+              </span>
+            )}
+          </div>
+          {row.isToday && (
+            <span className="text-[10px] text-indigo-400 font-medium">▶ Hoy</span>
+          )}
+        </td>
+        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">
+          {row.account.firm}
+        </td>
+        <td className="px-3 py-3 text-center">
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <span>D{row.operationDayFirst}</span>
+            <span>/</span>
+            <span>D{row.operationDaySecond}</span>
+          </div>
+        </td>
+        <td className="px-3 py-3 text-center">
+          <div
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}
+          >
+            {cfg.icon}
+            <span className="hidden sm:inline">{cfg.label}</span>
+          </div>
+        </td>
+        <td
+          className={`px-3 py-3 text-right text-sm font-mono hidden md:table-cell ${
+            row.day1Pnl === null
+              ? 'text-muted-foreground'
+              : row.day1Pnl > 0
+              ? 'text-emerald-400'
+              : 'text-red-400'
+          }`}
+        >
+          {fmtMoney(row.day1Pnl)}
+        </td>
+        <td
+          className={`px-3 py-3 text-right text-sm font-mono hidden md:table-cell ${
+            row.day2Pnl === null
+              ? 'text-muted-foreground'
+              : row.day2Pnl > 0
+              ? 'text-emerald-400'
+              : 'text-red-400'
+          }`}
+        >
+          {fmtMoney(row.day2Pnl)}
+        </td>
+        <td className="px-3 py-3 text-center">
+          <Link to={`/accounts/${row.account.id}`}>
+            <Button variant="ghost" size="icon" className="size-7">
+              <ExternalLink className="size-3.5" />
+            </Button>
+          </Link>
+        </td>
+      </tr>
+
+      {/* Sub-fila métricas Topstep */}
+      {tp && <TopstepProgressRow progress={tp} colSpan={8} isToday={row.isToday} />}
+    </>
+  );
+}
+
+// ─── Sub-fila progreso Topstep ────────────────────────────────────────────────
+function TopstepProgressRow({
+  progress: tp,
+  colSpan,
+  isToday,
+}: {
+  progress: TopstepAccountProgress;
+  colSpan: number;
+  isToday: boolean;
+}) {
+  const ddRoomColor =
+    tp.trailingDDRoom > 1000
+      ? 'text-emerald-400'
+      : tp.trailingDDRoom > 500
+      ? 'text-amber-400'
+      : 'text-red-400';
+
+  const consColor = tp.isConsistencyOk ? 'text-emerald-400' : 'text-red-400';
 
   return (
     <tr
-      className={`border-b border-border/50 transition-colors ${
-        row.isToday
-          ? 'bg-indigo-500/10'
-          : 'hover:bg-muted/30'
-      }`}
+      className={`border-b border-border/50 ${isToday ? 'bg-indigo-500/5' : 'bg-muted/10'}`}
     >
-      <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{row.position}</td>
-      <td className="px-3 py-3">
-        <div className="font-medium">{row.account.name}</div>
-        {row.isToday && (
-          <span className="text-[10px] text-indigo-400 font-medium">▶ Hoy</span>
-        )}
-      </td>
-      <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">
-        {row.account.firm}
-      </td>
-      <td className="px-3 py-3 text-center">
-        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-          <span>D{row.operationDayFirst}</span>
-          <span>/</span>
-          <span>D{row.operationDaySecond}</span>
+      <td colSpan={colSpan} className="px-4 pb-3 pt-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* Barra de progreso PNL */}
+          <div className="flex items-center gap-2 min-w-[160px]">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden min-w-[80px]">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  tp.isPassed ? 'bg-emerald-500' : 'bg-indigo-500'
+                }`}
+                style={{ width: `${tp.progressPct * 100}%` }}
+              />
+            </div>
+            <span className="text-xs font-mono whitespace-nowrap">
+              <span className={tp.cumulativePnl >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                {tp.cumulativePnl >= 0 ? '+' : ''}${Math.abs(tp.cumulativePnl).toLocaleString()}
+              </span>
+              <span className="text-muted-foreground"> / ${tp.targetProfit.toLocaleString()}</span>
+            </span>
+          </div>
+
+          {/* Días de trading */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-0.5">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div
+                  key={i}
+                  className={`size-2 rounded-full ${
+                    i < tp.tradingDays ? 'bg-indigo-400' : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              {tp.tradingDays}/5 días
+            </span>
+          </div>
+
+          {/* DD Room */}
+          <div className="flex items-center gap-1 text-[11px]">
+            {tp.trailingDDRoom <= 500 && <AlertTriangle className="size-3 text-red-400" />}
+            <span className="text-muted-foreground">DD Room:</span>
+            <span className={`font-semibold ${ddRoomColor}`}>
+              ${tp.trailingDDRoom.toLocaleString()}
+            </span>
+          </div>
+
+          {/* Consistencia */}
+          <div className="flex items-center gap-1 text-[11px]">
+            <span className="text-muted-foreground">Consistencia:</span>
+            <span className={`font-semibold ${consColor}`}>
+              {tp.cumulativePnl > 0
+                ? `${(tp.consistencyRatio * 100).toFixed(0)}% ${tp.isConsistencyOk ? '✓' : '✗'}`
+                : '—'}
+            </span>
+          </div>
         </div>
-      </td>
-      <td className="px-3 py-3 text-center">
-        <div
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}
-        >
-          {cfg.icon}
-          <span className="hidden sm:inline">{cfg.label}</span>
-        </div>
-      </td>
-      <td
-        className={`px-3 py-3 text-right text-sm font-mono hidden md:table-cell ${
-          row.day1Pnl === null
-            ? 'text-muted-foreground'
-            : row.day1Pnl > 0
-            ? 'text-emerald-400'
-            : 'text-red-400'
-        }`}
-      >
-        {fmtMoney(row.day1Pnl)}
-      </td>
-      <td
-        className={`px-3 py-3 text-right text-sm font-mono hidden md:table-cell ${
-          row.day2Pnl === null
-            ? 'text-muted-foreground'
-            : row.day2Pnl > 0
-            ? 'text-emerald-400'
-            : 'text-red-400'
-        }`}
-      >
-        {fmtMoney(row.day2Pnl)}
-      </td>
-      <td className="px-3 py-3 text-center">
-        <Link to={`/accounts/${row.account.id}`}>
-          <Button variant="ghost" size="icon" className="size-7">
-            <ExternalLink className="size-3.5" />
-          </Button>
-        </Link>
       </td>
     </tr>
   );
