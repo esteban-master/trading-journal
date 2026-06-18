@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { TradeDetailsSheet } from '../../trades/TradeDetailsSheet';
+import { EditTradeDialog } from '@/components/trades/EditTradeDialog';
 import CreateTradeDialog from '@/components/trades/CreateTradeDialog';
 
 function ImagesCellButton({ images }: { images: string[] }) {
@@ -218,7 +219,12 @@ const columns: ColumnDef<Trade>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => <TradeDetailsSheet trade={row.original} />,
+    cell: ({ row }) => (
+      <div className="flex items-center gap-0.5">
+        <TradeDetailsSheet trade={row.original} />
+        <EditTradeDialog trade={row.original} />
+      </div>
+    ),
   },
 ];
 

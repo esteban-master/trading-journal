@@ -164,16 +164,45 @@ export function useUpdateTrade() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, fields }: { id: string; fields: Partial<Trade> }) => {
+    mutationFn: async ({
+      id,
+      fields,
+      pnlDiff,
+      accountId,
+    }: {
+      id: string;
+      fields: Partial<Trade>;
+      pnlDiff?: number;
+      accountId?: string;
+    }) => {
       const docRef = doc(db, tradeCollectionKey, id);
       await updateDoc(docRef, fields);
+
+      // Adjust account balance when PnL changed
+      if (typeof pnlDiff === 'number' && pnlDiff !== 0 && accountId) {
+        const accountRef = doc(db, accountCollectionKey, accountId);
+        const accSnap = await getDoc(accountRef);
+        if (accSnap.exists()) {
+          const accData = accSnap.data();
+          const currentBalance = new Decimal(accData.currentBalance || 0);
+          const equity = new Decimal(accData.equity || accData.currentBalance || 0);
+          await updateDoc(accountRef, {
+            currentBalance: currentBalance.plus(pnlDiff).toNumber(),
+            equity: equity.plus(pnlDiff).toNumber(),
+          });
+        }
+      }
+
       return id;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['trades'] });
-      // Invalidate related account queries too just in case
+      if (variables.accountId) {
+        queryClient.invalidateQueries({ queryKey: ['trades', 'account', variables.accountId] });
+        queryClient.invalidateQueries({ queryKey: ['accounts', variables.accountId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    }
+    },
   });
 }
 
