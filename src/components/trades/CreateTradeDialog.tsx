@@ -748,7 +748,7 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
                   {/* Subida de Imágenes */}
                   <div className="space-y-2">
                     <FormLabel>Evidencia (Imágenes)</FormLabel>
-                    <ImageUploader files={files} onFilesChange={setFiles} maxFiles={3} />
+                    <ImageUploader files={files} onFilesChange={setFiles} maxFiles={10} />
                   </div>
                 </div>
                 

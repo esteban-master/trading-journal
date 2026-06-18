@@ -8,12 +8,13 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, TrendingUp, TrendingDown, Crosshair, Target, Activity, Image as ImageIcon, Brain, Flame, ZoomIn } from 'lucide-react';
+import { Eye, Calendar, TrendingUp, TrendingDown, Crosshair, Target, Activity, Image as ImageIcon, Brain, Flame, ZoomIn, Timer } from 'lucide-react';
 import { Trade } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatDate } from '@/lib/formatDate';
 import { cn } from '@/lib/utils';
+import { formatDuration } from '@/lib/tradeStats';
 import { RelatedNotes } from '@/components/notes/RelatedNotes';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
@@ -34,6 +35,11 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
   const isLong = trade.direction === 'Long';
   const isPositive = trade.pnl >= 0;
   const [lightboxIndex, setLightboxIndex] = useState(-1);
+
+  const durationMinutes =
+    trade.date && trade.exitDate
+      ? Math.round((new Date(trade.exitDate).getTime() - new Date(trade.date).getTime()) / 60000)
+      : null;
 
   return (
     <>
@@ -95,6 +101,17 @@ export function TradeDetailsSheet({ trade }: TradeDetailsSheetProps) {
             <div className="flex flex-col gap-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground">Riesgo Tomado</span>
               <span className="font-bold">{trade.riskPercent ? `${trade.riskPercent}%` : '—'}</span>
+            </div>
+            <div className="flex flex-col gap-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border col-span-2 md:col-span-4">
+              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Timer className="size-3" /> Duración del Trade</span>
+              {durationMinutes !== null && durationMinutes >= 0 ? (
+                <div className="flex items-baseline gap-2">
+                  <span className="font-bold">{formatDuration(durationMinutes)}</span>
+                  <span className="text-xs text-muted-foreground">({durationMinutes} min)</span>
+                </div>
+              ) : (
+                <span className="font-bold text-muted-foreground">—</span>
+              )}
             </div>
           </div>
 

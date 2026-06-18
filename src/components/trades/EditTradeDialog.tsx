@@ -540,7 +540,7 @@ export function EditTradeDialog({ trade }: EditTradeDialogProps) {
                     onFilesChange={setNewFiles}
                     existingUrls={existingImages}
                     onRemoveExisting={(url) => setExistingImages((prev) => prev.filter((u) => u !== url))}
-                    maxFiles={3}
+                    maxFiles={10}
                   />
                 </div>
 
