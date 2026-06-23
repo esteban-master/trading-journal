@@ -1,4 +1,4 @@
-import { Info, ShieldAlert, TrendingUp, Target, Scale, Zap } from 'lucide-react';
+import { Info, ShieldAlert, TrendingUp, Target, Scale, Zap, ShieldCheck, TrendingDown, Gauge } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Account } from '@/types';
+import { resolveRiskProfile, DEFAULT_ROBUST_MAX_RISK_PERCENT, DEFAULT_DRAWDOWN_DERISK_TIERS } from '@/lib/risk';
 
 interface RiskExplanationModalProps {
   account: Account;
@@ -20,6 +21,11 @@ export function RiskExplanationModal({ account }: RiskExplanationModalProps) {
   const lossMult = account.lossMultiplier ?? 1.2;
   const maxRisk = account.maxRiskPercent ?? 2.8;
   const phase2Risk = (baseRisk + 0.5).toFixed(2);
+
+  const profile = resolveRiskProfile(account.status, account.riskProfile);
+  const isRobust = profile === 'robust';
+  const robustMax = account.robustMaxRiskPercent ?? DEFAULT_ROBUST_MAX_RISK_PERCENT;
+  const tiers = DEFAULT_DRAWDOWN_DERISK_TIERS;
 
   const isEval = account.status === 'Evaluation';
   const targetPct = account.targetProfitPercentage ?? 6;
@@ -50,15 +56,76 @@ export function RiskExplanationModal({ account }: RiskExplanationModalProps) {
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <Scale className="size-5 text-indigo-500" />
-            Estrategia de Riesgo Dinámico ("Buffer Strategy")
+            {isRobust ? 'Estrategia de Riesgo Robusto (Capital Real)' : 'Estrategia de Riesgo Dinámico ("Buffer Strategy")'}
           </DialogTitle>
           <DialogDescription>
-            Conoce cómo el Asesor de Riesgo calcula tu porcentaje recomendado paso a paso.
+            {isRobust
+              ? 'Esta cuenta prioriza sobrevivir y compounder: anti-martingala y protección por drawdown.'
+              : 'Conoce cómo el Asesor de Riesgo calcula tu porcentaje recomendado paso a paso.'}
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="h-[60vh] px-6 py-4">
           <div className="space-y-6 pr-3">
+            {isRobust ? (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Esta cuenta usa el <strong>perfil Robusto</strong>, pensado para <strong>capital real o fondeado</strong>. Su prioridad es <strong>sobrevivir y compounder</strong>: nunca aumenta el tamaño después de perder y reduce el riesgo automáticamente cuando entras en drawdown.
+                </p>
+
+                {/* Anti-martingala */}
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                  <h4 className="font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-400 mb-2">
+                    <ShieldCheck className="size-4" />
+                    Riesgo base estable (anti-martingala)
+                  </h4>
+                  <ul className="text-sm space-y-1 list-disc pl-4 text-emerald-900/80 dark:text-emerald-200/80">
+                    <li>Tras una pérdida <strong>NO se aumenta el riesgo</strong>: vuelves a tu riesgo base ({baseRisk.toFixed(2)}%).</li>
+                    <li>La fracción fija sobre tu balance ya reduce los dólares arriesgados al caer la cuenta. El interés compuesto lo hace ella sola; no hace falta subir el %.</li>
+                  </ul>
+                </div>
+
+                {/* Colchón con techo bajo */}
+                <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/50">
+                  <h4 className="font-bold flex items-center gap-2 text-blue-800 dark:text-blue-400 mb-2">
+                    <TrendingUp className="size-4" />
+                    Colchón ("house money") con techo prudente
+                  </h4>
+                  <ul className="text-sm space-y-1 list-disc pl-4 text-blue-900/80 dark:text-blue-200/80">
+                    <li>Con ganancias mayores al 1% puedes escalar sobre el colchón, pero topado al <strong>{robustMax}%</strong> (no al {maxRisk.toFixed(2)}% del modo Sprint).</li>
+                    <li>A la primera pérdida vuelves al riesgo base.</li>
+                  </ul>
+                </div>
+
+                {/* Protección por drawdown */}
+                <div className="bg-rose-50 dark:bg-rose-950/20 p-4 rounded-xl border border-rose-100 dark:border-rose-900/50">
+                  <h4 className="font-bold flex items-center gap-2 text-rose-800 dark:text-rose-400 mb-2">
+                    <TrendingDown className="size-4" />
+                    Protección por drawdown (reduce, nunca aumenta)
+                  </h4>
+                  <p className="text-sm text-rose-900/80 dark:text-rose-200/80 mb-2">
+                    Si la cuenta cae desde su máximo, el riesgo se recorta por tramos automáticamente:
+                  </p>
+                  <ul className="text-sm space-y-1 list-disc pl-4 text-rose-900/80 dark:text-rose-200/80">
+                    {tiers.map((t) => (
+                      <li key={t.drawdownPercent}>Drawdown ≥ {t.drawdownPercent}% → riesgo <strong>×{t.factor}</strong></li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Centinela */}
+                <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50">
+                  <h4 className="font-bold flex items-center gap-2 text-gray-700 dark:text-gray-300 mb-2">
+                    <Gauge className="size-4" />
+                    El Centinela sigue activo
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    El límite de pérdida diaria, el lockout por racha y el profit-lock cierran la jornada cuando toca. El de-risk manual (×0.5) se aplica encima de todo lo anterior.
+                  </p>
+                </div>
+              </>
+            ) : (
+            <>
             <p className="text-sm text-gray-600 dark:text-gray-300">
               El algoritmo matemático divide tu operativa en 4 fases distintas. Su objetivo principal es <strong>proteger tu capital inicial</strong> y, una vez tengas ganancias ("dinero de la casa"), apalancarte de forma inteligente para alcanzar tu meta.
             </p>
@@ -130,7 +197,8 @@ export function RiskExplanationModal({ account }: RiskExplanationModalProps) {
                 • Aunque estuvieras en Fase 3 y tu riesgo fuera {maxRisk.toFixed(2)}%, el sistema te pone un <strong>freno al {riskNeededPct.toFixed(2)}%</strong>, asegurando que si ganas tu próximo trade a 1:2, pases la prueba exacto.
               </div>
             </div>
-
+            </>
+            )}
           </div>
         </ScrollArea>
       </DialogContent>

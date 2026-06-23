@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle, TrendingDown, Lock, MinusCircle } from 'luc
 import { useRiskStore } from '@/store/useRiskStore';
 import { useAccountDetailStore } from '@/store/useAccountDetailStore';
 import { useRiskGuardianStore } from '@/store/useRiskGuardianStore';
-import { calculateNextRisk, calculateConsecutiveLosses } from '@/lib/risk';
+import { calculateNextRisk, calculateConsecutiveLosses, resolveRiskProfile } from '@/lib/risk';
 import { computeAccountRiskStatus, getDayKey } from '@/lib/riskGuardian';
 import { Trade } from '@/types';
 import { RiskExplanationModal } from './RiskExplanationModal';
@@ -37,14 +37,22 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
       lossMultiplier: account?.lossMultiplier ?? globalSettings.lossMultiplier,
       enableEquityScaling: account?.enableEquityScaling ?? globalSettings.enableEquityScaling,
       maxRiskPercent: account?.maxRiskPercent ?? globalSettings.maxRiskPercent,
+      riskProfile: account ? resolveRiskProfile(account.status, account.riskProfile) : 'sprint',
+      robustMaxRiskPercent: account?.robustMaxRiskPercent ?? globalSettings.robustMaxRiskPercent,
+      drawdownDeRiskTiers: globalSettings.drawdownDeRiskTiers,
     };
   }, [
     account?.baseRiskPercent,
     account?.lossMultiplier,
     account?.enableEquityScaling,
     account?.maxRiskPercent,
+    account?.status,
+    account?.riskProfile,
+    account?.robustMaxRiskPercent,
     globalSettings
   ]);
+
+  const isRobust = activeSettings.riskProfile === 'robust';
 
   const recommendedNextRiskResult = useMemo(() => {
     const sortedTrades = [...trades].sort(
@@ -60,9 +68,10 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
         targetProfitPercentage: account?.targetProfitPercentage,
         averageRR: parseFloat(avgRR) || 0,
       },
-      deRiskFactor
+      deRiskFactor,
+      guardStatus?.currentDrawdownPercent
     );
-  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance, account?.status, account?.targetProfitPercentage, avgRR, deRiskFactor]);
+  }, [trades, activeSettings, account?.currentBalance, account?.startingBalance, account?.status, account?.targetProfitPercentage, avgRR, deRiskFactor, guardStatus?.currentDrawdownPercent]);
 
   const recommendedNextRisk = recommendedNextRiskResult.riskPercent;
   const isCappedByTarget = recommendedNextRiskResult.isCappedByTarget;
@@ -75,6 +84,11 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   }, [trades]);
 
   const isIncreasedRisk = currentStreak > 0;
+  const currentDrawdownPercent = guardStatus?.currentDrawdownPercent ?? 0;
+  // En perfil robusto el riesgo se REDUCE por tramos de drawdown (default: primer tramo en 5%).
+  const isProtectionMode = isRobust && currentDrawdownPercent >= 5;
+  // El riesgo solo "sube" en sprint con racha; en robusto nunca escala (anti-martingala).
+  const isSprintRecovery = !isRobust && isIncreasedRisk;
 
   const pnlPercent = account && account.startingBalance ? ((account.currentBalance - account.startingBalance) / account.startingBalance) * 100 : 0;
 
@@ -89,7 +103,12 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
     phaseColorClass = 'text-purple-700 dark:text-purple-400';
     phaseDotColor = 'bg-purple-500 shadow-purple-500/50';
     glowColor = 'bg-purple-500';
-  } else if (isIncreasedRisk) {
+  } else if (isProtectionMode) {
+    riskPhaseLabel = 'Modo Protección (Drawdown)';
+    phaseColorClass = 'text-rose-700 dark:text-rose-400';
+    phaseDotColor = 'bg-rose-500 shadow-rose-500/50';
+    glowColor = 'bg-rose-500';
+  } else if (isSprintRecovery) {
     riskPhaseLabel = 'Riesgo Aumentado (Recuperación)';
     phaseColorClass = 'text-orange-700 dark:text-orange-400';
     phaseDotColor = 'bg-orange-500 shadow-orange-500/50';
@@ -118,6 +137,14 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
           <div className="flex items-center gap-2">
             <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Asesor de Riesgo</h3>
             {account && <RiskExplanationModal account={account} />}
+            {account && (
+              <span
+                title={isRobust ? 'Perfil robusto: anti-martingala + protección por drawdown' : 'Perfil sprint: recuperación agresiva (evaluaciones)'}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${isRobust ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}
+              >
+                {isRobust ? 'Robusto' : 'Sprint'}
+              </span>
+            )}
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Calculado sobre tu racha actual</p>
           {(isLocked || isDeRisked) && (
@@ -157,7 +184,7 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
           {isLocked ? (
             <span className="text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400">No operar</span>
           ) : (
-            <span className={`text-3xl font-black tracking-tight ${isDeRisked ? 'text-orange-600 dark:text-orange-400' : isIncreasedRisk ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            <span className={`text-3xl font-black tracking-tight ${isDeRisked ? 'text-orange-600 dark:text-orange-400' : isProtectionMode ? 'text-rose-600 dark:text-rose-400' : isSprintRecovery ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {recommendedNextRisk.toFixed(2)}%
             </span>
           )}
@@ -181,9 +208,13 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
           <div className="flex items-center gap-4 text-xs font-medium text-gray-500 dark:text-gray-400">
             <span>Base: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.baseRiskPercent}%</strong></span>
             <span>•</span>
-            <span>Máx: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.maxRiskPercent}%</strong></span>
+            <span>Máx: <strong className="text-gray-700 dark:text-gray-300">{isRobust ? activeSettings.robustMaxRiskPercent : activeSettings.maxRiskPercent}%</strong></span>
             <span>•</span>
-            <span>Mult: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.lossMultiplier}x</strong></span>
+            {isRobust ? (
+              <span>Tras pérdida: <strong className="text-gray-700 dark:text-gray-300">base (anti-martingala)</strong></span>
+            ) : (
+              <span>Mult: <strong className="text-gray-700 dark:text-gray-300">{activeSettings.lossMultiplier}x</strong></span>
+            )}
           </div>
         </div>
 

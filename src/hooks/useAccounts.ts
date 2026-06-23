@@ -45,11 +45,14 @@ const normalizeAccount = (docId: string, data: DocumentData): Account => {
     lossMultiplier: data.lossMultiplier,
     enableEquityScaling: data.enableEquityScaling,
     maxRiskPercent: data.maxRiskPercent,
+    riskProfile: data.riskProfile,
+    robustMaxRiskPercent: data.robustMaxRiskPercent,
     dailyLossLimitPercent: data.dailyLossLimitPercent,
     maxTradesPerDay: data.maxTradesPerDay,
     maxConsecutiveLossesLockout: data.maxConsecutiveLossesLockout,
     dailyProfitLockPercent: data.dailyProfitLockPercent,
     trailingDrawdown: data.trailingDrawdown,
+    streakScope: data.streakScope,
     createdAt: data.createdAt instanceof Timestamp
       ? data.createdAt.toDate().toISOString()
       : data.createdAt ?? new Date().toISOString()

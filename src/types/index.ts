@@ -1,5 +1,12 @@
 export type AccountStatus = 'Evaluation' | 'Funded' | 'Blown' | 'Payout' | 'Real' | 'Demo';
 
+/**
+ * Perfil de gestión de riesgo:
+ * - 'sprint': agresivo, para evaluaciones (martingala de recuperación + scaling fuerte).
+ * - 'robust': anti-martingala + de-risking por drawdown + techo bajo, para capital real/fondeado.
+ */
+export type RiskProfile = 'sprint' | 'robust';
+
 export interface Account {
   id: string;
   userId: string;
@@ -29,6 +36,8 @@ export interface Account {
   lossMultiplier?: number;
   enableEquityScaling?: boolean;
   maxRiskPercent?: number;
+  riskProfile?: RiskProfile | 'auto'; // 'auto' (default) lo resuelve desde `status`
+  robustMaxRiskPercent?: number;      // techo de riesgo en perfil robusto (default 1.5%)
 
   // Centinela de Riesgo (intradía / cuenta)
   dailyLossLimitPercent?: number;        // % del startingBalance que cierra el día

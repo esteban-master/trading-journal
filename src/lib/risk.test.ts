@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateNextRisk, calculateConsecutiveLosses } from './risk';
+import { calculateNextRisk, calculateConsecutiveLosses, resolveRiskProfile } from './risk';
 import { Trade } from '@/types';
 
 // Mock function to easily create trades
@@ -164,5 +164,57 @@ describe('Risk Management Strategy Simulation (20 Trades)', () => {
     // Next Risk = 0.55 + 4.3 = 4.85%
     // BUT we have maxRiskPercent = 2.80%
     expect(finalRisk.riskPercent).toBe(2.80);
+  });
+});
+
+describe('Risk Management — Robust Profile (capital real / fondeado)', () => {
+  const robustSettings = {
+    baseRiskPercent: 0.55,
+    lossMultiplier: 1.20,
+    enableEquityScaling: true,
+    maxRiskPercent: 2.80,
+    riskProfile: 'robust' as const,
+    robustMaxRiskPercent: 1.5,
+    // drawdownDeRiskTiers omitido ⇒ usa defaults: 5%→×0.75, 8%→×0.5, 12%→×0.25
+  };
+
+  it('Anti-martingala: tras N pérdidas el riesgo NO sube de base', () => {
+    const trades: Trade[] = [
+      createTrade('2026-05-01', -100),
+      createTrade('2026-05-02', -100),
+      createTrade('2026-05-03', -100),
+      createTrade('2026-05-04', -100),
+      createTrade('2026-05-05', -100),
+    ];
+    expect(calculateConsecutiveLosses(trades)).toBe(5);
+    // En sprint esto sería 0.55 * 1.2^5 = 1.37; en robusto se mantiene en base.
+    expect(calculateNextRisk(trades, robustSettings).riskPercent).toBe(0.55);
+  });
+
+  it('De-risk por drawdown: reduce por tramos (5/8/12%)', () => {
+    // El 7º argumento es currentDrawdownPercent.
+    expect(calculateNextRisk([], robustSettings, undefined, undefined, undefined, 1, 3).riskPercent).toBe(0.55); // < primer tramo
+    expect(calculateNextRisk([], robustSettings, undefined, undefined, undefined, 1, 6).riskPercent).toBe(0.41); // ×0.75
+    expect(calculateNextRisk([], robustSettings, undefined, undefined, undefined, 1, 9).riskPercent).toBe(0.28); // ×0.5
+    expect(calculateNextRisk([], robustSettings, undefined, undefined, undefined, 1, 13).riskPercent).toBe(0.14); // ×0.25
+  });
+
+  it('Equity scaling topa en robustMaxRiskPercent (1.5%), no en 2.8%', () => {
+    // +9.6% de profit: en sprint daría 4.85 → cap 2.8; en robusto cap 1.5.
+    const trades: Trade[] = [createTrade('2026-05-01', 4800)];
+    const result = calculateNextRisk(trades, robustSettings, 54800, 50000);
+    expect(result.riskPercent).toBe(1.5);
+  });
+
+  it('resolveRiskProfile mapea estado de cuenta → perfil', () => {
+    expect(resolveRiskProfile('Funded')).toBe('robust');
+    expect(resolveRiskProfile('Real')).toBe('robust');
+    expect(resolveRiskProfile('Payout')).toBe('robust');
+    expect(resolveRiskProfile('Evaluation')).toBe('sprint');
+    expect(resolveRiskProfile('Demo')).toBe('sprint');
+    // Un override explícito siempre gana sobre el estado.
+    expect(resolveRiskProfile('Funded', 'sprint')).toBe('sprint');
+    expect(resolveRiskProfile('Evaluation', 'robust')).toBe('robust');
+    expect(resolveRiskProfile('Funded', 'auto')).toBe('robust');
   });
 });

@@ -48,6 +48,8 @@ const editAccountSchema = z.object({
   lossMultiplier: z.coerce.number().min(1, 'El multiplicador debe ser al menos 1').optional(),
   enableEquityScaling: z.boolean().default(true),
   maxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
+  riskProfile: z.enum(['auto', 'robust', 'sprint']).default('auto'),
+  robustMaxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
   // Centinela de Riesgo
   dailyLossLimitPercent: z.coerce.number().min(0).max(100).optional(),
   maxTradesPerDay: z.coerce.number().min(0).max(100).optional(),
@@ -78,6 +80,8 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
       lossMultiplier: account.lossMultiplier ?? 1.2,
       enableEquityScaling: account.enableEquityScaling ?? true,
       maxRiskPercent: account.maxRiskPercent ?? 2.8,
+      riskProfile: account.riskProfile ?? 'auto',
+      robustMaxRiskPercent: account.robustMaxRiskPercent ?? 1.5,
       dailyLossLimitPercent: account.dailyLossLimitPercent ?? 2,
       maxTradesPerDay: account.maxTradesPerDay ?? 5,
       maxConsecutiveLossesLockout: account.maxConsecutiveLossesLockout ?? 3,
@@ -96,6 +100,8 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
         lossMultiplier: account.lossMultiplier ?? 1.2,
         enableEquityScaling: account.enableEquityScaling ?? true,
         maxRiskPercent: account.maxRiskPercent ?? 2.8,
+        riskProfile: account.riskProfile ?? 'auto',
+        robustMaxRiskPercent: account.robustMaxRiskPercent ?? 1.5,
         dailyLossLimitPercent: account.dailyLossLimitPercent ?? 2,
         maxTradesPerDay: account.maxTradesPerDay ?? 5,
         maxConsecutiveLossesLockout: account.maxConsecutiveLossesLockout ?? 3,
@@ -117,6 +123,8 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
           lossMultiplier: values.lossMultiplier,
           enableEquityScaling: values.enableEquityScaling,
           maxRiskPercent: values.maxRiskPercent,
+          riskProfile: values.riskProfile,
+          robustMaxRiskPercent: values.robustMaxRiskPercent,
           dailyLossLimitPercent: values.dailyLossLimitPercent,
           maxTradesPerDay: values.maxTradesPerDay,
           maxConsecutiveLossesLockout: values.maxConsecutiveLossesLockout,
@@ -236,6 +244,50 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
                     </div>
                   </div>
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="riskProfile"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Perfil de Riesgo</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || 'auto'}>
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="auto">Automático (según estado de la cuenta)</SelectItem>
+                          <SelectItem value="robust">Robusto (capital real · anti-martingala)</SelectItem>
+                          <SelectItem value="sprint">Sprint (evaluación · recuperación agresiva)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        "Automático": Funded/Real/Payout → Robusto; Evaluación/Demo → Sprint. El robusto nunca sube el riesgo tras perder y lo reduce por tramos en drawdown.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="robustMaxRiskPercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Riesgo Máximo Robusto (%)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input type="number" step="0.1" className="pr-8" {...field} value={field.value ?? ''} />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                        </div>
+                      </FormControl>
+                      <FormDescription>Techo de riesgo cuando el perfil activo es Robusto (recomendado ~1.5%).</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
