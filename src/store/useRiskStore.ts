@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { RiskProgressionSettings, calculateNextRisk, calculateConsecutiveLosses } from '@/lib/risk';
+import { RiskProgressionSettings, calculateNextRisk, calculateConsecutiveLosses, DEFAULT_ROBUST_MAX_RISK_PERCENT, DEFAULT_DRAWDOWN_DERISK_TIERS } from '@/lib/risk';
 import { Trade } from '@/types';
 
 interface RiskState {
@@ -15,6 +15,9 @@ const defaultSettings: RiskProgressionSettings = {
   lossMultiplier: 1.20,
   enableEquityScaling: true,
   maxRiskPercent: 2.80,
+  // riskProfile ausente ⇒ 'sprint' por defecto (sin contexto de cuenta no aplicamos el robusto).
+  robustMaxRiskPercent: DEFAULT_ROBUST_MAX_RISK_PERCENT,
+  drawdownDeRiskTiers: DEFAULT_DRAWDOWN_DERISK_TIERS,
 };
 
 export const useRiskStore = create<RiskState>()(

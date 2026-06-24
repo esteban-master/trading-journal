@@ -1,10 +1,40 @@
-import { Trade } from '@/types';
+import { Trade, AccountStatus, RiskProfile } from '@/types';
+
+/** Tramo de protección: cuando el drawdown alcanza `drawdownPercent`, el riesgo se multiplica por `factor` (≤1). */
+export interface DrawdownDeRiskTier {
+  drawdownPercent: number;
+  factor: number;
+}
 
 export interface RiskProgressionSettings {
   baseRiskPercent: number; // ej: 0.55
   lossMultiplier: number;  // ej: 1.20
   enableEquityScaling?: boolean;
   maxRiskPercent?: number; // ej: 2.80
+  riskProfile?: RiskProfile;        // 'sprint' (default) | 'robust'
+  robustMaxRiskPercent?: number;    // techo de riesgo en perfil robusto (default 1.5)
+  drawdownDeRiskTiers?: DrawdownDeRiskTier[]; // tramos de de-risk por drawdown (perfil robusto)
+}
+
+/** Techo de riesgo por defecto en perfil robusto. */
+export const DEFAULT_ROBUST_MAX_RISK_PERCENT = 1.5;
+
+/** Tramos de de-risk por drawdown por defecto (perfil robusto). El lockout duro lo gestiona el Centinela. */
+export const DEFAULT_DRAWDOWN_DERISK_TIERS: DrawdownDeRiskTier[] = [
+  { drawdownPercent: 5, factor: 0.75 },
+  { drawdownPercent: 8, factor: 0.5 },
+  { drawdownPercent: 12, factor: 0.25 },
+];
+
+/**
+ * Resuelve el perfil de riesgo efectivo de una cuenta.
+ * `Funded | Real | Payout` → 'robust'; el resto ('Evaluation', 'Demo', 'Blown') → 'sprint'.
+ * Un `override` explícito (distinto de 'auto') siempre gana.
+ * Alinea con el precedente `isFundedOrReal` de riskGuardian.
+ */
+export function resolveRiskProfile(status: AccountStatus, override?: RiskProfile | 'auto'): RiskProfile {
+  if (override && override !== 'auto') return override;
+  return status === 'Funded' || status === 'Real' || status === 'Payout' ? 'robust' : 'sprint';
 }
 
 export interface TargetProximitySettings {
@@ -22,6 +52,7 @@ export interface TargetProximitySettings {
  * @param startingBalance (Optional) The starting account balance
  * @param targetProximity (Optional) Settings to cap risk when near evaluation targets
  * @param deRiskFactor (Optional) Final multiplier applied to the result (e.g. 0.5 to halve risk after a losing streak). Default 1.
+ * @param currentDrawdownPercent (Optional) Current drawdown (%). Used by the 'robust' profile to step risk down. Ignored in 'sprint'.
  * @returns Recommended risk percentage rounded to 2 decimal places
  */
 export function calculateNextRisk(
@@ -30,8 +61,12 @@ export function calculateNextRisk(
   currentBalance?: number,
   startingBalance?: number,
   targetProximity?: TargetProximitySettings,
-  deRiskFactor: number = 1
+  deRiskFactor: number = 1,
+  currentDrawdownPercent?: number
 ): { riskPercent: number; isCappedByTarget: boolean } {
+  const profile: RiskProfile = settings.riskProfile ?? 'sprint';
+  const isRobust = profile === 'robust';
+
   let consecutiveLosses = 0;
 
   for (const trade of trades) {
@@ -44,28 +79,50 @@ export function calculateNextRisk(
     }
   }
 
-  // Calculate base recovery risk: baseRisk * (lossMultiplier ^ consecutiveLosses)
-  let nextRisk = settings.baseRiskPercent * Math.pow(settings.lossMultiplier, consecutiveLosses);
+  // Techo efectivo según perfil: sprint usa maxRiskPercent; robusto usa robustMaxRiskPercent.
+  const effectiveMax = isRobust
+    ? (settings.robustMaxRiskPercent ?? DEFAULT_ROBUST_MAX_RISK_PERCENT)
+    : settings.maxRiskPercent;
 
-  // Apply Equity Scaling if enabled and we have balance info
+  // Riesgo de partida:
+  // - sprint: martingala de recuperación → base * (lossMultiplier ^ pérdidasConsecutivas).
+  // - robusto: SIEMPRE riesgo base (anti-martingala: nunca sube tras perder). La fracción fija
+  //   ya reduce los $ al caer el balance; el de-risk por drawdown se aplica más abajo.
+  let nextRisk = isRobust
+    ? settings.baseRiskPercent
+    : settings.baseRiskPercent * Math.pow(settings.lossMultiplier, consecutiveLosses);
+
+  // Equity Scaling ("house money"): en ambos perfiles, solo si vamos en positivo y sin racha.
   if (settings.enableEquityScaling && currentBalance !== undefined && startingBalance !== undefined && startingBalance > 0) {
     const pnlPercent = ((currentBalance - startingBalance) / startingBalance) * 100;
-    
+
     // Only scale up if we are in profit and there are no consecutive losses (we are on a winning streak or flat)
     if (pnlPercent > 0 && consecutiveLosses === 0) {
       if (pnlPercent > 1.0) {
-        const scalingBuffer = pnlPercent - 1.0; 
+        const scalingBuffer = pnlPercent - 1.0;
         const extraRisk = scalingBuffer * 0.5;
         nextRisk = settings.baseRiskPercent + extraRisk;
       }
     }
   }
 
-  // Cap risk at maxRiskPercent if defined
-  if (settings.maxRiskPercent && nextRisk > settings.maxRiskPercent) {
-    nextRisk = settings.maxRiskPercent;
+  // Cap risk at the profile's ceiling if defined
+  if (effectiveMax && nextRisk > effectiveMax) {
+    nextRisk = effectiveMax;
   }
-  
+
+  // De-risking escalonado por drawdown (solo perfil robusto). Aplica el factor del tramo más
+  // profundo alcanzado. El lockout completo lo sigue gestionando el Centinela de Riesgo.
+  if (isRobust && currentDrawdownPercent !== undefined && currentDrawdownPercent > 0) {
+    const tiers = settings.drawdownDeRiskTiers ?? DEFAULT_DRAWDOWN_DERISK_TIERS;
+    let tierFactor = 1;
+    for (const tier of tiers) {
+      // Aplica el factor más fuerte (menor) entre los tramos alcanzados; independiente del orden.
+      if (currentDrawdownPercent >= tier.drawdownPercent) tierFactor = Math.min(tierFactor, tier.factor);
+    }
+    nextRisk = nextRisk * tierFactor;
+  }
+
   let isCappedByTarget = false;
 
   // --- Target Proximity Cap (Option B: Historical Average RR) ---

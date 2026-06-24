@@ -132,12 +132,17 @@ export function runMonteCarloSimulation({
         averageRR: riskRewardRatio,
       };
 
+      // Drawdown al inicio de este trade (perfil robusto lo usa para reducir riesgo en tramos).
+      const drawdownBeforeTrade = maxBalance > 0 ? ((maxBalance - currentBalance) / maxBalance) * 100 : 0;
+
       const riskResult = calculateNextRisk(
         history,
         settings,
         currentBalance,
         startingBalance,
-        targetProximity
+        targetProximity,
+        1,
+        drawdownBeforeTrade
       );
 
       // Dollar amount at risk
@@ -315,5 +320,70 @@ export function runMonteCarloSimulation({
       probabilityOfProfitPercent: (profitCount / iterations) * 100,
       kellyPercentage: kelly * 100
     }
+  };
+}
+
+// --- Barrido de riesgo base óptimo --------------------------------------------
+
+export interface BaseRiskSweepRow {
+  baseRiskPercent: number;
+  ruinPercent: number;        // probabilidad de ruina (%)
+  maxDrawdownWorst: number;   // peor drawdown observado (%)
+  finalBalanceMedian: number;
+  profitPercentMedian: number;
+}
+
+export interface BaseRiskSweepResult {
+  rows: BaseRiskSweepRow[];
+  recommendedBaseRiskPercent: number | null;
+  maxDrawdownToleratePercent: number;
+  maxRuinPercent: number;
+}
+
+const DEFAULT_BASE_RISK_CANDIDATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+/**
+ * Barre `baseRiskPercent` y devuelve, por candidato, riesgo de ruina, peor drawdown y balance
+ * mediano (Monte Carlo determinista vía seed fija). Recomienda el MAYOR base cuya ruina sea
+ * ≤ `maxRuinPercent` y cuyo peor drawdown sea ≤ `maxDrawdownToleratePercent`.
+ *
+ * Sirve para elegir el riesgo base con estadísticas reales del usuario (winRate/RR), en vez de
+ * un número genérico. Reutiliza `runMonteCarloSimulation`.
+ */
+export function findOptimalBaseRisk(
+  params: SimulatorParams,
+  candidateBases: number[] = DEFAULT_BASE_RISK_CANDIDATES,
+  maxDrawdownToleratePercent = 25,
+  maxRuinPercent = 0.5
+): BaseRiskSweepResult {
+  const seed = params.seed ?? 1337;
+
+  const rows: BaseRiskSweepRow[] = candidateBases.map((base) => {
+    const { summary } = runMonteCarloSimulation({
+      ...params,
+      seed,
+      settings: { ...params.settings, baseRiskPercent: base },
+    });
+    return {
+      baseRiskPercent: base,
+      ruinPercent: summary.probabilityOfRuinPercent,
+      maxDrawdownWorst: summary.maxDrawdownWorst,
+      finalBalanceMedian: summary.finalBalanceMedian,
+      profitPercentMedian: summary.profitPercentMedian,
+    };
+  });
+
+  const eligible = rows.filter(
+    (r) => r.ruinPercent <= maxRuinPercent && r.maxDrawdownWorst <= maxDrawdownToleratePercent
+  );
+  const recommended = eligible.length
+    ? eligible.reduce((best, r) => (r.baseRiskPercent > best.baseRiskPercent ? r : best))
+    : null;
+
+  return {
+    rows,
+    recommendedBaseRiskPercent: recommended ? recommended.baseRiskPercent : null,
+    maxDrawdownToleratePercent,
+    maxRuinPercent,
   };
 }

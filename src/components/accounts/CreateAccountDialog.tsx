@@ -70,6 +70,8 @@ const createAccountSchema = z.object({
   lossMultiplier: z.coerce.number().min(1, 'El multiplicador debe ser al menos 1').optional(),
   enableEquityScaling: z.boolean().default(true),
   maxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
+  riskProfile: z.enum(['auto', 'robust', 'sprint']).default('auto'),
+  robustMaxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
   // Centinela de Riesgo
   dailyLossLimitPercent: z.coerce.number().min(0).max(100).optional(),
   maxTradesPerDay: z.coerce.number().min(0).max(100).optional(),
@@ -178,6 +180,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       lossMultiplier: 1.20,
       enableEquityScaling: true,
       maxRiskPercent: 2.80,
+      riskProfile: 'auto',
+      robustMaxRiskPercent: 1.5,
       dailyLossLimitPercent: 2,
       maxTradesPerDay: 5,
       maxConsecutiveLossesLockout: 3,
@@ -212,6 +216,8 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
       lossMultiplier: values.lossMultiplier,
       enableEquityScaling: values.enableEquityScaling,
       maxRiskPercent: values.maxRiskPercent,
+      riskProfile: values.riskProfile,
+      robustMaxRiskPercent: values.robustMaxRiskPercent,
       dailyLossLimitPercent: values.dailyLossLimitPercent,
       maxTradesPerDay: values.maxTradesPerDay,
       maxConsecutiveLossesLockout: values.maxConsecutiveLossesLockout,
@@ -599,6 +605,49 @@ export function CreateAccountDialog({ children }: CreateAccountDialogProps) {
                       </p>
                     </div>
                   )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="riskProfile"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Perfil de Riesgo</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || 'auto'}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="auto">Automático (según estado)</SelectItem>
+                              <SelectItem value="robust">Robusto (capital real)</SelectItem>
+                              <SelectItem value="sprint">Sprint (evaluación)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>Real/Funded/Payout → Robusto. Robusto = anti-martingala + protección por drawdown.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="robustMaxRiskPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Máx. Robusto (%)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input type="number" step="0.1" className="pr-8" {...field} value={field.value ?? ''} />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>Techo en perfil Robusto (~1.5%).</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <div className="flex flex-col gap-2 mb-1">
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Perfiles de Riesgo Rápidos</span>
