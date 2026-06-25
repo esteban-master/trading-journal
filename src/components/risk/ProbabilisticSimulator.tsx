@@ -176,25 +176,25 @@ export function ProbabilisticSimulator() {
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[1300px] w-[95vw] max-h-[95vh] overflow-hidden p-0 bg-slate-50 dark:bg-slate-950" onPointerDownOutside={(e) => e.preventDefault()}>
-          <ScrollArea className="h-[90vh] p-6">
-            <Tabs defaultValue="lab" className="w-full pr-3">
-              <div className="flex justify-between items-start mb-4">
-                <DialogHeader className="mb-0">
-                  <DialogTitle className="flex items-center gap-2 text-2xl w-full">
-                    <Dices className="text-indigo-500 w-6 h-6" />
-                    Laboratorio de Backtest Avanzado
+          <ScrollArea className="h-[90vh] p-4 sm:p-6">
+            <Tabs defaultValue="lab" className="w-full">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                <DialogHeader className="mb-0 text-left">
+                  <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl w-full">
+                    <Dices className="text-indigo-500 w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+                    <span className="leading-tight">Laboratorio de Backtest Avanzado</span>
                   </DialogTitle>
-                  <DialogDescription>
+                  <DialogDescription className="text-left mt-1.5 text-xs sm:text-sm max-w-xl">
                     Simula escenarios simultáneos y optimiza tu riesgo usando matemáticas puras.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="flex items-center gap-4">
-                  <TabsList>
-                    <TabsTrigger value="lab" className="flex items-center gap-2"><Dices className="w-4 h-4" /> Laboratorio</TabsTrigger>
-                    <TabsTrigger value="optimizer" className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> Optimizador</TabsTrigger>
-                    <TabsTrigger value="trades" className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Trades</TabsTrigger>
+                <div className="flex items-center gap-2 w-full lg:w-auto">
+                  <TabsList className="grid w-full lg:w-auto grid-cols-3 h-auto p-1 bg-slate-200/50 dark:bg-slate-900/50">
+                    <TabsTrigger value="lab" className="flex items-center justify-center gap-1.5 text-[10px] sm:text-sm py-2 px-1 sm:px-4"><Dices className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /> <span className="hidden sm:inline">Laboratorio</span><span className="sm:hidden">Lab</span></TabsTrigger>
+                    <TabsTrigger value="optimizer" className="flex items-center justify-center gap-1.5 text-[10px] sm:text-sm py-2 px-1 sm:px-4"><Sparkles className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /> <span className="hidden sm:inline">Optimizador</span><span className="sm:hidden">Opt</span></TabsTrigger>
+                    <TabsTrigger value="trades" className="flex items-center justify-center gap-1.5 text-[10px] sm:text-sm py-2 px-1 sm:px-4"><ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /> Trades</TabsTrigger>
                   </TabsList>
-                  <Button variant="ghost" size="icon" onClick={() => setShowExplanation(true)} className="rounded-full text-indigo-500 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 h-8 w-8">
+                  <Button variant="ghost" size="icon" onClick={() => setShowExplanation(true)} className="rounded-full text-indigo-500 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 h-8 w-8 shrink-0">
                     <Info className="w-4 h-4" />
                   </Button>
                 </div>
@@ -371,7 +371,7 @@ export function ProbabilisticSimulator() {
                     ) : (
                       <>
                         {/* Summary Grid */}
-                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
 
                           {/* Balance Mediano */}
                           <div className={`p-5 rounded-2xl border shadow-sm flex flex-col relative overflow-hidden ${result.summary.profitPercentMedian >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50'}`}>
@@ -421,7 +421,7 @@ export function ProbabilisticSimulator() {
                           </div>
 
                           {/* Rachas (Span 2 Columns) */}
-                          <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 col-span-2">
+                          <div className="p-5 rounded-2xl border shadow-sm flex flex-col bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 sm:col-span-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4">
                               Rachas Consecutivas (Strikes)
                             </span>
