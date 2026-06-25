@@ -913,10 +913,10 @@ function TradeListView({
                       {trade.riskPercent.toFixed(2)}%
                     </span>
                     <span className="text-right self-center text-slate-600 dark:text-slate-400 font-medium">
-                      ${trade.dollarRisk.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                      ${trade.dollarRisk.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     <span className={`text-right self-center font-black ${trade.pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                      {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     <span className="text-right self-center font-bold text-slate-800 dark:text-slate-200">
                       ${trade.balance.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
