@@ -38,6 +38,7 @@ export interface Account {
   maxRiskPercent?: number;
   riskProfile?: RiskProfile | 'auto'; // 'auto' (default) lo resuelve desde `status`
   robustMaxRiskPercent?: number;      // techo de riesgo en perfil robusto (default 1.5%)
+  drawdownDeRiskEnabled?: boolean;    // false = riesgo base fijo, sin reducción por tramos de drawdown
 
   // Centinela de Riesgo (intradía / cuenta)
   dailyLossLimitPercent?: number;        // % del startingBalance que cierra el día

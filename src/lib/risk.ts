@@ -14,6 +14,7 @@ export interface RiskProgressionSettings {
   riskProfile?: RiskProfile;        // 'sprint' (default) | 'robust'
   robustMaxRiskPercent?: number;    // techo de riesgo en perfil robusto (default 1.5)
   drawdownDeRiskTiers?: DrawdownDeRiskTier[]; // tramos de de-risk por drawdown (perfil robusto)
+  drawdownDeRiskEnabled?: boolean;  // false = riesgo base fijo, ignora los tramos de drawdown
 }
 
 /** Techo de riesgo por defecto en perfil robusto. */
@@ -111,13 +112,12 @@ export function calculateNextRisk(
     nextRisk = effectiveMax;
   }
 
-  // De-risking escalonado por drawdown (solo perfil robusto). Aplica el factor del tramo más
-  // profundo alcanzado. El lockout completo lo sigue gestionando el Centinela de Riesgo.
-  if (isRobust && currentDrawdownPercent !== undefined && currentDrawdownPercent > 0) {
+  // De-risking escalonado por drawdown (solo perfil robusto, y solo si está habilitado).
+  // Con drawdownDeRiskEnabled === false el riesgo base es fijo independientemente del drawdown.
+  if (isRobust && (settings.drawdownDeRiskEnabled ?? true) && currentDrawdownPercent !== undefined && currentDrawdownPercent > 0) {
     const tiers = settings.drawdownDeRiskTiers ?? DEFAULT_DRAWDOWN_DERISK_TIERS;
     let tierFactor = 1;
     for (const tier of tiers) {
-      // Aplica el factor más fuerte (menor) entre los tramos alcanzados; independiente del orden.
       if (currentDrawdownPercent >= tier.drawdownPercent) tierFactor = Math.min(tierFactor, tier.factor);
     }
     nextRisk = nextRisk * tierFactor;

@@ -349,40 +349,59 @@ export function TiltGuardModal({ account, trades, open, onOpenChange, winRate, a
           </div>
         </div>
 
-        {/* Footer: decisión híbrida */}
+        {/* Footer: decisión */}
         <div className="border-t border-gray-100 dark:border-gray-800 px-6 py-4 space-y-3">
           {!emotion && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">Registra tu estado emocional para continuar.</p>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <DecisionButton
-              decision="keep_plan"
-              recommended={recommended === 'keep_plan'}
-              disabled={!emotion}
-              onClick={() => handleDecision('keep_plan')}
-              icon={<ShieldCheck className="size-4" />}
-              title="Mantener plan"
-              subtitle="Riesgo constante"
-            />
-            <DecisionButton
-              decision="derisk"
-              recommended={recommended === 'derisk'}
-              disabled={!emotion}
-              onClick={() => handleDecision('derisk')}
-              icon={<MinusCircle className="size-4" />}
-              title="Reducir 50%"
-              subtitle="De-risk hasta verde"
-            />
-            <DecisionButton
-              decision="lockout"
-              recommended={recommended === 'lockout'}
-              disabled={!emotion}
-              onClick={() => handleDecision('lockout')}
-              icon={<Lock className="size-4" />}
-              title="Bloquear día"
-              subtitle="Cerrar la jornada"
-            />
-          </div>
+          {status.lockoutSuggested ? (
+            /* Bloqueo forzado: regla dura en rojo → un solo botón */
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-[11px] text-rose-600 dark:text-rose-400 text-center">
+                Una regla dura está en rojo. La jornada se cierra automáticamente hasta mañana a las 8:00 AM.
+              </p>
+              <button
+                type="button"
+                disabled={!emotion}
+                onClick={() => handleDecision('lockout')}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Lock className="size-4" />
+                Cerrar la jornada · hasta mañana 8:00 AM
+              </button>
+            </div>
+          ) : (
+            /* Sin regla dura: el usuario elige */
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <DecisionButton
+                decision="keep_plan"
+                recommended={recommended === 'keep_plan'}
+                disabled={!emotion}
+                onClick={() => handleDecision('keep_plan')}
+                icon={<ShieldCheck className="size-4" />}
+                title="Mantener plan"
+                subtitle="Riesgo constante"
+              />
+              <DecisionButton
+                decision="derisk"
+                recommended={recommended === 'derisk'}
+                disabled={!emotion}
+                onClick={() => handleDecision('derisk')}
+                icon={<MinusCircle className="size-4" />}
+                title="Reducir 50%"
+                subtitle="De-risk hasta verde"
+              />
+              <DecisionButton
+                decision="lockout"
+                recommended={recommended === 'lockout'}
+                disabled={!emotion}
+                onClick={() => handleDecision('lockout')}
+                icon={<Lock className="size-4" />}
+                title="Bloquear día"
+                subtitle="Cerrar la jornada"
+              />
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

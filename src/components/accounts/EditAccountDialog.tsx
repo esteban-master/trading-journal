@@ -50,6 +50,7 @@ const editAccountSchema = z.object({
   maxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
   riskProfile: z.enum(['auto', 'robust', 'sprint']).default('auto'),
   robustMaxRiskPercent: z.coerce.number().min(0.1).max(100).optional(),
+  drawdownDeRiskEnabled: z.boolean().default(true),
   // Centinela de Riesgo
   dailyLossLimitPercent: z.coerce.number().min(0).max(100).optional(),
   maxTradesPerDay: z.coerce.number().min(0).max(100).optional(),
@@ -82,6 +83,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
       maxRiskPercent: account.maxRiskPercent ?? 2.8,
       riskProfile: account.riskProfile ?? 'auto',
       robustMaxRiskPercent: account.robustMaxRiskPercent ?? 1.5,
+      drawdownDeRiskEnabled: account.drawdownDeRiskEnabled ?? true,
       dailyLossLimitPercent: account.dailyLossLimitPercent ?? 2,
       maxTradesPerDay: account.maxTradesPerDay ?? 5,
       maxConsecutiveLossesLockout: account.maxConsecutiveLossesLockout ?? 3,
@@ -102,6 +104,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
         maxRiskPercent: account.maxRiskPercent ?? 2.8,
         riskProfile: account.riskProfile ?? 'auto',
         robustMaxRiskPercent: account.robustMaxRiskPercent ?? 1.5,
+        drawdownDeRiskEnabled: account.drawdownDeRiskEnabled ?? true,
         dailyLossLimitPercent: account.dailyLossLimitPercent ?? 2,
         maxTradesPerDay: account.maxTradesPerDay ?? 5,
         maxConsecutiveLossesLockout: account.maxConsecutiveLossesLockout ?? 3,
@@ -125,6 +128,7 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
           maxRiskPercent: values.maxRiskPercent,
           riskProfile: values.riskProfile,
           robustMaxRiskPercent: values.robustMaxRiskPercent,
+          drawdownDeRiskEnabled: values.drawdownDeRiskEnabled,
           dailyLossLimitPercent: values.dailyLossLimitPercent,
           maxTradesPerDay: values.maxTradesPerDay,
           maxConsecutiveLossesLockout: values.maxConsecutiveLossesLockout,
@@ -285,6 +289,28 @@ export function EditAccountDialog({ account }: EditAccountDialogProps) {
                       </FormControl>
                       <FormDescription>Techo de riesgo cuando el perfil activo es Robusto (recomendado ~1.5%).</FormDescription>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="drawdownDeRiskEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start justify-between rounded-lg border border-slate-200 dark:border-slate-800 p-3 shadow-sm bg-white dark:bg-slate-900/50">
+                      <div className="space-y-0.5 pr-4">
+                        <FormLabel>Reducción automática por Drawdown</FormLabel>
+                        <FormDescription className="text-[10px] mt-1">
+                          Activo: reduce el riesgo base por tramos (5% DD → ×0.75 · 8% → ×0.5 · 12% → ×0.25).<br />
+                          Inactivo: riesgo base fijo sin importar el drawdown actual.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />

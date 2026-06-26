@@ -40,6 +40,7 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
       riskProfile: account ? resolveRiskProfile(account.status, account.riskProfile) : 'sprint',
       robustMaxRiskPercent: account?.robustMaxRiskPercent ?? globalSettings.robustMaxRiskPercent,
       drawdownDeRiskTiers: globalSettings.drawdownDeRiskTiers,
+      drawdownDeRiskEnabled: account?.drawdownDeRiskEnabled ?? true,
     };
   }, [
     account?.baseRiskPercent,
@@ -49,6 +50,7 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
     account?.status,
     account?.riskProfile,
     account?.robustMaxRiskPercent,
+    account?.drawdownDeRiskEnabled,
     globalSettings
   ]);
 
