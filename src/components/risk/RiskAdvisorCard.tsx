@@ -28,7 +28,7 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
     () => (account ? computeAccountRiskStatus(account, trades) : null),
     [account, trades]
   );
-  const isLocked = manualLockout || (guardStatus?.lockoutSuggested ?? false);
+  const isLocked = manualLockout;
   const isDeRisked = deRiskFactor < 1;
 
   const activeSettings = useMemo(() => {

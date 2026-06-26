@@ -95,7 +95,7 @@ export function RiskGuardianBar({ account, trades, winRate, avgRR, maxDrawdownLi
   const cooldownRemainingMs = session.cooldownUntil ? session.cooldownUntil - Date.now() : 0;
   const cooldownActive = cooldownRemainingMs > 0;
   const deRiskActive = session.deRiskFactor < 1;
-  const lockoutActive = (session.lockoutUntil !== null && Date.now() < session.lockoutUntil) || status.lockoutSuggested;
+  const lockoutActive = session.lockoutUntil !== null && Date.now() < session.lockoutUntil;
 
   const cooldownLabel = useMemo(() => {
     if (!cooldownActive) return '';

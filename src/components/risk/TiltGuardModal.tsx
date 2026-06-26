@@ -184,9 +184,11 @@ export function TiltGuardModal({ account, trades, open, onOpenChange, winRate, a
   const handleDecision = async (decision: RiskDecision) => {
     if (cooldownMinutes > 0) startCooldown(account.id, cooldownMinutes);
 
-    if (decision === 'keep_plan') setDeRisk(account.id, 1);
-    else if (decision === 'derisk') setDeRisk(account.id, 0.5);
-    else if (decision === 'lockout') setLockout(account.id, true);
+    // Si hay lockout sugerido (regla dura en rojo), el día siempre se bloquea
+    // independientemente del botón elegido en el modal.
+    if (status.lockoutSuggested || decision === 'lockout') setLockout(account.id, true);
+    if (decision === 'derisk') setDeRisk(account.id, 0.5);
+    else if (decision === 'keep_plan') setDeRisk(account.id, 1);
 
     markStreakHandled(account.id, status.consecutiveLosses);
 
