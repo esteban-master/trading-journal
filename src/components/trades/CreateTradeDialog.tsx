@@ -160,7 +160,7 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
   const guardianSession = useRiskGuardianStore((s) => (selectedAccountId ? s.sessions[selectedAccountId] : undefined));
   const isGuardianToday = guardianSession?.dayKey === getDayKey(new Date());
   const cooldownUntil = isGuardianToday ? guardianSession?.cooldownUntil ?? null : null;
-  const manualLockout = isGuardianToday ? guardianSession?.manualLockout ?? false : false;
+  const manualLockout = (guardianSession?.lockoutUntil ?? 0) > Date.now();
 
   const [override, setOverride] = useState(false);
   const [, setNowTick] = useState(0);
@@ -190,7 +190,7 @@ export default function CreateTradeDialog({ defaultAccountId: propAccountId }: C
       // (salvo anulación explícita, que deja el trade marcado como "revancha").
       const session = getGuardianSession(values.accountId);
       const cdActive = session.cooldownUntil ? session.cooldownUntil > Date.now() : false;
-      const blockedNow = cdActive || session.manualLockout;
+      const blockedNow = cdActive || (session.lockoutUntil ?? 0) > Date.now();
       if (blockedNow && !override) {
         toast.error('Bloqueado por el Centinela', {
           description: cdActive

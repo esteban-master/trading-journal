@@ -208,7 +208,7 @@ export function TiltGuardModal({ account, trades, open, onOpenChange, winRate, a
     const msg: Record<RiskDecision, string> = {
       keep_plan: 'Mantienes el plan con riesgo constante.',
       derisk: 'Riesgo reducido al 50% hasta tu próximo trade ganador.',
-      lockout: 'Día bloqueado. Vuelve mañana con la mente fresca.',
+      lockout: 'Día bloqueado hasta las 8:00 AM de mañana. Descansa y vuelve con la mente fresca.',
     };
     toast.success('Decisión registrada', { description: msg[decision] });
     onOpenChange(false);

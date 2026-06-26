@@ -22,7 +22,7 @@ export function RiskAdvisorCard({ trades }: RiskAdvisorCardProps) {
   const session = useRiskGuardianStore((s) => (account ? s.sessions[account.id] : undefined));
   const isToday = session?.dayKey === getDayKey(new Date());
   const deRiskFactor = isToday ? session!.deRiskFactor : 1;
-  const manualLockout = isToday ? session!.manualLockout : false;
+  const manualLockout = (session?.lockoutUntil ?? 0) > Date.now();
 
   const guardStatus = useMemo(
     () => (account ? computeAccountRiskStatus(account, trades) : null),

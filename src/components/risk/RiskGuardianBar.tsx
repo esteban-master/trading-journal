@@ -95,7 +95,7 @@ export function RiskGuardianBar({ account, trades, winRate, avgRR, maxDrawdownLi
   const cooldownRemainingMs = session.cooldownUntil ? session.cooldownUntil - Date.now() : 0;
   const cooldownActive = cooldownRemainingMs > 0;
   const deRiskActive = session.deRiskFactor < 1;
-  const lockoutActive = session.manualLockout || status.lockoutSuggested;
+  const lockoutActive = (session.lockoutUntil !== null && Date.now() < session.lockoutUntil) || status.lockoutSuggested;
 
   const cooldownLabel = useMemo(() => {
     if (!cooldownActive) return '';
@@ -193,7 +193,7 @@ export function RiskGuardianBar({ account, trades, winRate, avgRR, maxDrawdownLi
 
           {/* Controles manuales */}
           <div className="ml-auto flex items-center gap-2">
-            {session.manualLockout ? (
+            {(session.lockoutUntil !== null && Date.now() < session.lockoutUntil) ? (
               <button
                 onClick={() => setLockout(account.id, false)}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"

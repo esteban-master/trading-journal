@@ -7,7 +7,7 @@ interface AccountSession {
   dayKey: string;
   cooldownUntil: number | null;   // epoch ms
   deRiskFactor: number;           // 1 = normal, 0.5 = riesgo reducido
-  manualLockout: boolean;         // día bloqueado manualmente
+  lockoutUntil: number | null;    // epoch ms — null = sin bloqueo
   lastHandledStreak: number;      // última racha ya atendida en el Tilt Guard
 }
 
@@ -26,19 +26,39 @@ function freshSession(): AccountSession {
     dayKey: getDayKey(new Date()),
     cooldownUntil: null,
     deRiskFactor: 1,
-    manualLockout: false,
+    lockoutUntil: null,
     lastHandledStreak: 0,
   };
 }
 
-/** Devuelve la sesión vigente; si el día cambió, la resetea automáticamente. */
+/** Epoch ms del día siguiente a las 8:00 AM (inicio de jornada de trading). */
+function nextDayAt8am(): number {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(8, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Devuelve la sesión vigente; si el día cambió, resetea pero preserva un lockout activo. */
 function ensureToday(sessions: Record<string, AccountSession>, accountId: string): AccountSession {
   const today = getDayKey(new Date());
-  const existing = sessions[accountId];
-  if (!existing || existing.dayKey !== today) {
-    return freshSession();
+  // Migración: sesiones antiguas con manualLockout boolean
+  const raw = sessions[accountId] as (AccountSession & { manualLockout?: boolean }) | undefined;
+  let existing: AccountSession | undefined = raw;
+  if (raw && raw.manualLockout === true && raw.lockoutUntil === undefined) {
+    existing = { ...raw, lockoutUntil: nextDayAt8am() };
   }
-  return existing;
+
+  if (!existing || existing.dayKey === today) {
+    return existing ?? freshSession();
+  }
+
+  // El día cambió: sesión fresca, pero preserva el lockout si aún no venció
+  const fresh = freshSession();
+  if (existing.lockoutUntil !== null && Date.now() < existing.lockoutUntil) {
+    return { ...fresh, lockoutUntil: existing.lockoutUntil };
+  }
+  return fresh;
 }
 
 export const useRiskGuardianStore = create<RiskGuardianState>()(
@@ -73,7 +93,7 @@ export const useRiskGuardianStore = create<RiskGuardianState>()(
         set((state) => {
           const base = ensureToday(state.sessions, accountId);
           return {
-            sessions: { ...state.sessions, [accountId]: { ...base, manualLockout: locked } },
+            sessions: { ...state.sessions, [accountId]: { ...base, lockoutUntil: locked ? nextDayAt8am() : null } },
           };
         }),
 
