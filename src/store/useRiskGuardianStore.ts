@@ -42,16 +42,16 @@ function nextDayAt8am(): number {
 /** Devuelve la sesión vigente; si el día cambió, resetea pero preserva un lockout activo. */
 function ensureToday(sessions: Record<string, AccountSession>, accountId: string): AccountSession {
   const today = getDayKey(new Date());
-  // Migración: sesiones antiguas con manualLockout boolean
   const raw = sessions[accountId] as (AccountSession & { manualLockout?: boolean }) | undefined;
-  let existing: AccountSession | undefined = raw;
-  if (raw && raw.manualLockout === true && raw.lockoutUntil === undefined) {
-    existing = { ...raw, lockoutUntil: nextDayAt8am() };
-  }
 
-  if (!existing || existing.dayKey === today) {
-    return existing ?? freshSession();
-  }
+  if (!raw) return freshSession();
+
+  // Migración: sesiones antiguas con manualLockout boolean, solo si son del día de hoy
+  let existing: AccountSession = raw.lockoutUntil !== undefined
+    ? raw
+    : { ...raw, lockoutUntil: (raw.manualLockout === true && raw.dayKey === today) ? nextDayAt8am() : null };
+
+  if (existing.dayKey === today) return existing;
 
   // El día cambió: sesión fresca, pero preserva el lockout si aún no venció
   const fresh = freshSession();
